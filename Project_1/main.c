@@ -41,7 +41,20 @@ void show_error_message(char * ExecName)
 void show_targets(target_t targets[], int nTargetCount)
 {
 	//Write your warmup code here
-	
+	for(int i = 0; i < nTargetCount; i++) {
+		int dependencyCount = targets[i].DependencyCount;
+		printf("Target Name: %s\n", targets[i].TargetName);
+		printf("DependencyCount: %d\n", dependencyCount);
+		if(dependencyCount > 0) {
+			printf("DependencyNames: ");
+			for(int j = 0; j < dependencyCount; j++) {
+				printf("%s ", targets[i].DependencyNames[j]);
+			}
+			printf("\n");
+		}
+		printf("Command: %s\n", targets[i].Command);
+		printf("\n");
+	}
 }
 
 /*-------------------------------------------------------END OF HELPER FUNCTIONS-------------------------------------*/
@@ -104,9 +117,9 @@ int main(int argc, char *argv[])
   //Phase1: Warmup-----------------------------------------------------------------------------------------------------
   //Parse the structure elements and print them as mentioned in the Project Writeup
   /* Comment out the following line before Phase2 */
-  show_targets(targets, nTargetCount);  
+  show_targets(targets, nTargetCount);
   //End of Warmup------------------------------------------------------------------------------------------------------
-   
+
   /*
    * Set Targetname
    * If target is not set, set it to default (first target from makefile)
@@ -124,13 +137,13 @@ int main(int argc, char *argv[])
    * etc. Else if no target is mentioned then build the first target
    * found in Makefile.
    */
-	
+
   //Phase2: Begins ----------------------------------------------------------------------------------------------------
   /*Your code begins here*/
-  
-  
-  
-  
+
+
+
+
   /*End of your code*/
   //End of Phase2------------------------------------------------------------------------------------------------------
 
