@@ -59,7 +59,10 @@ void show_targets(target_t targets[], int nTargetCount)
 }
 
 void build(target_t target) {
-
+	while(target.DependencyCount > 0) {
+		target.DependencyCount = 0;
+	}
+	printf("Target Name: %s\n", target.TargetName);
 }
 
 /*-------------------------------------------------------END OF HELPER FUNCTIONS-------------------------------------*/
@@ -122,7 +125,7 @@ int main(int argc, char *argv[])
   //Phase1: Warmup-----------------------------------------------------------------------------------------------------
   //Parse the structure elements and print them as mentioned in the Project Writeup
   /* Comment out the following line before Phase2 */
-  show_targets(targets, nTargetCount);
+  // show_targets(targets, nTargetCount);
   //End of Warmup------------------------------------------------------------------------------------------------------
 
   /*
@@ -130,7 +133,7 @@ int main(int argc, char *argv[])
    * If target is not set, set it to default (first target from makefile)
    */
   if(argc == 1)
-	strcpy(TargetName, argv[optind]);    // here we have the given target, this acts as a method to begin the building
+		strcpy(TargetName, argv[optind]);    // here we have the given target, this acts as a method to begin the building
   else
   	strcpy(TargetName, targets[0].TargetName);  // default part is the first target
 
@@ -145,10 +148,12 @@ int main(int argc, char *argv[])
 
   //Phase2: Begins ----------------------------------------------------------------------------------------------------
   /*Your code begins here*/
-
-
-
-
+	int target_index = find_target(TargetName, targets, nTargetCount);
+	if(target_index == -1) {
+		printf("Target %s does not exist.\n", TargetName);
+	} else {
+		build(targets[target_index]);
+	}
   /*End of your code*/
   //End of Phase2------------------------------------------------------------------------------------------------------
 
