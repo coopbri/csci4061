@@ -93,7 +93,7 @@ int find_target(char *TargetName, target_t targets[], int nTargetCount);
 /*
  * Tokenize Command to be the argv for execvp
  */
-int parse_into_tokens(const char *const input_string, char *tokens[], char *delim);
+int parse_into_tokens(char *input_string, char *tokens[], char *delim);
 /*-------------------------------------------------------END OF MAKEARGV TOKENS--------------------------------------*/
 
 

@@ -97,12 +97,10 @@ int compare_modification_time(char * lpsz1, char * lpsz2)
 
 /*-------------------------------------------------------PARSE TOKENS------------------------------------------------*/
 //Tis is to tokenize the input string
-int parse_into_tokens(const char *const input_string, char *tokens[], char *delim)
+int parse_into_tokens(char *input_string, char *tokens[], char *delim)
 {
 	int i=0;
-	char temp[ARG_MAX];
-	strcpy(temp,input_string);
-	char *tok = strtok(temp, delim);
+	char *tok = strtok(input_string, delim);
 	while(tok!=NULL && i<ARG_MAX)
 	{
 		tokens[i] = tok;
