@@ -20,6 +20,7 @@
 void show_error_message(char * ExecName);
 //Write your functions prototypes here
 void show_targets(target_t targets[], int nTargetCount);
+void build(target_t target);
 /*-------------------------------------------------------END OF HELPER FUNCTIONS PROTOTYPES--------------------------*/
 
 
@@ -55,6 +56,10 @@ void show_targets(target_t targets[], int nTargetCount)
 		printf("Command: %s\n", targets[i].Command);
 		printf("\n");
 	}
+}
+
+void build(target_t target) {
+
 }
 
 /*-------------------------------------------------------END OF HELPER FUNCTIONS-------------------------------------*/
