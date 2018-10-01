@@ -59,10 +59,42 @@ void show_targets(target_t targets[], int nTargetCount)
 }
 
 void build(target_t target) {
-	while(target.DependencyCount > 0) {
-		target.DependencyCount = 0;
+	target.Status = 1;
+	// While you have a DependencyCount of more than 0 we must continue until
+	// We have a 0 DependencyCount.
+	while(target.Status != 0) {
+		// For loop from 0 to the DependencyCount of the target.
+		// This is used to go through each Dependency and do checking.
+		for(int i = 0; i < target.DependencyCount; i++) {
+			// Check to see if the file already exists
+			// If it exists, we will then need to check it's timestamp.
+			if(does_file_exist(target.DependencyNames[i]) == 0) {
+				// Get back an integer to tell you whether or not something must be rebuilt.
+				int timestamp_check = compare_modification_time(target.TargetName, target.DependencyNames[i]);
+				// Either both where just built or the target has been modified and the
+				// Dependency has not therefore you don't need to rebuild.
+				if(timestamp_check == 1 || timestamp_check == 0) {
+					printf("Built Dependency Name: %s\n", target.DependencyNames[i]);
+				}
+				// If the Dependency needs to be built, you will recall build(target.DependencyNames[i]).
+				else if(timestamp_check == 2) {
+					printf("Need to be Rebuilt Dependency Name: %s\n", target.DependencyNames[i]);
+				}
+				// This case should never happen, but if so there will just be an error.
+				else {
+					printf("Error, no such file: %s", target.DependencyNames[i]);
+					break;
+				}
+			}
+			// If the file does not exist you will recall build.
+			else {
+				printf("Dependency Name: %s\n", target.DependencyNames[i]);
+			}
+		}
+		target.Status = 0; //Remove this line.
+		printf("Target Name: %s\n", target.TargetName);
 	}
-	printf("Target Name: %s\n", target.TargetName);
+	// Fork/Exec/Wait statements happen down here.
 }
 
 /*-------------------------------------------------------END OF HELPER FUNCTIONS-------------------------------------*/
