@@ -20,7 +20,7 @@
 void show_error_message(char * ExecName);
 //Write your functions prototypes here
 void show_targets(target_t targets[], int nTargetCount);
-void build(target_t target);
+void build(char TargetName[], target_t targets[], int nTargetCount);
 /*-------------------------------------------------------END OF HELPER FUNCTIONS PROTOTYPES--------------------------*/
 
 
@@ -58,43 +58,36 @@ void show_targets(target_t targets[], int nTargetCount)
 	}
 }
 
-void build(target_t target) {
-	target.Status = 1;
-	// While you have a DependencyCount of more than 0 we must continue until
-	// We have a 0 DependencyCount.
-	while(target.Status != 0) {
-		// For loop from 0 to the DependencyCount of the target.
-		// This is used to go through each Dependency and do checking.
-		for(int i = 0; i < target.DependencyCount; i++) {
-			// Check to see if the file already exists
-			// If it exists, we will then need to check it's timestamp.
-			if(does_file_exist(target.DependencyNames[i]) == 0) {
-				// Get back an integer to tell you whether or not something must be rebuilt.
-				int timestamp_check = compare_modification_time(target.TargetName, target.DependencyNames[i]);
-				// Either both where just built or the target has been modified and the
-				// Dependency has not therefore you don't need to rebuild.
-				if(timestamp_check == 1 || timestamp_check == 0) {
-					printf("Built Dependency Name: %s\n", target.DependencyNames[i]);
-				}
-				// If the Dependency needs to be built, you will recall build(target.DependencyNames[i]).
-				else if(timestamp_check == 2) {
-					printf("Need to be Rebuilt Dependency Name: %s\n", target.DependencyNames[i]);
-				}
-				// This case should never happen, but if so there will just be an error.
-				else {
-					printf("Error, no such file: %s", target.DependencyNames[i]);
-					break;
-				}
-			}
-			// If the file does not exist you will recall build.
-			else {
-				printf("Dependency Name: %s\n", target.DependencyNames[i]);
-			}
+// Takes in the targets array with a target_index to get us the target we will be searching for.
+// Status for a target:
+// 0 - Not Ready, hasn't been checked. (This is the default.)
+// 1 - Ready to be executed. (Change to this once all checker has been completed.)
+// 2 - Finished. (Change to this once fork/exec is finished.)
+void build(char TargetName[], target_t targets[], int nTargetCount) {
+	// Initial build variable declarations.
+	int target_index = find_target(TargetName, targets, nTargetCount);
+	target_t target = targets[target_index];
+	char *tokens[128];
+	int nTokens = parse_into_tokens(target.Command, tokens, " ");
+	int dependencyCount = target.DependencyCount;
+	*tokens[127] = '\n';
+
+	// Target has not been checked off
+	if(target.Status == 0) {
+		// File does not exist yet.
+		if(does_file_exist(target.TargetName) == -1) {
+			
 		}
-		target.Status = 0; //Remove this line.
-		printf("Target Name: %s\n", target.TargetName);
+		// File does exist and must be checked for modification time.
+		else {
+
+		}
 	}
-	// Fork/Exec/Wait statements happen down here.
+	// Target has been checked and needs to be built.
+	else if(target.Status == 1) {
+
+	}
+	// Target has been built.
 }
 
 /*-------------------------------------------------------END OF HELPER FUNCTIONS-------------------------------------*/
@@ -180,12 +173,7 @@ int main(int argc, char *argv[])
 
   //Phase2: Begins ----------------------------------------------------------------------------------------------------
   /*Your code begins here*/
-	int target_index = find_target(TargetName, targets, nTargetCount);
-	if(target_index == -1) {
-		printf("Target %s does not exist.\n", TargetName);
-	} else {
-		build(targets[target_index]);
-	}
+	build(TargetName, targets, nTargetCount);
   /*End of your code*/
   //End of Phase2------------------------------------------------------------------------------------------------------
 
