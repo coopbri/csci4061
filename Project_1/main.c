@@ -72,6 +72,8 @@ void build(char TargetName[], target_t targets[], int nTargetCount) {
 		return;
 	}
 	target_t target = targets[target_index];
+	pid_t childpid;
+	int status;
 	char *tokens[128];
 	int nTokens = parse_into_tokens(target.Command, tokens, " ");
 	int dependencyCount = target.DependencyCount;
@@ -101,8 +103,22 @@ void build(char TargetName[], target_t targets[], int nTargetCount) {
 			build(target.DependencyNames[i], targets, nTargetCount);
 			printf("Dependency Name: %s \n", target.DependencyNames[i]);
 		}
-		// For loop has finished and has traversed completely down.
-		target.Status = 2;
+		// For loop has finished and has traversed completely down fork/exec/wait.
+		childpid = fork();
+		if(childpid > 0) {
+			// Wait happens here.
+			childpid = wait(&status);
+			target.Status = 2;
+		}
+		else if(childpid == 0) {
+			// Exec happens here.
+			execvp(tokens[0], tokens);
+		}
+		else {
+			// Errors happen here.
+			perror("Fork problem");
+			exit(-1);
+		}
 	}
 	// Target has been built.
 	printf("Target has been built.\n");
