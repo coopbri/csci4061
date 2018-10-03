@@ -63,31 +63,49 @@ void show_targets(target_t targets[], int nTargetCount)
 // 0 - Not Ready, hasn't been checked. (This is the default.)
 // 1 - Ready to be executed. (Change to this once all checker has been completed.)
 // 2 - Finished. (Change to this once fork/exec is finished.)
+// 3 - Does not need to be built at all, no fork/exec needed.
 void build(char TargetName[], target_t targets[], int nTargetCount) {
 	// Initial build variable declarations.
 	int target_index = find_target(TargetName, targets, nTargetCount);
+	if(target_index == -1) {
+		// This does not have a target in the makefile, thus just return.
+		return;
+	}
 	target_t target = targets[target_index];
 	char *tokens[128];
 	int nTokens = parse_into_tokens(target.Command, tokens, " ");
 	int dependencyCount = target.DependencyCount;
-	*tokens[127] = '\n';
 
 	// Target has not been checked off
-	if(target.Status == 0) {
+	while(target.Status == 0) {
 		// File does not exist yet.
 		if(does_file_exist(target.TargetName) == -1) {
-			
+			// Since file does not exist no more error checking.
+			// Exit while loop.
+			target.Status = 1;
 		}
 		// File does exist and must be checked for modification time.
 		else {
-
+			printf("File does exist and is needed to be checked.\n");
+			// Do modification time checking later.
+			target.Status = 1;
 		}
 	}
 	// Target has been checked and needs to be built.
-	else if(target.Status == 1) {
-
+	while(target.Status == 1) {
+		// Target must not be checked for dependencies.
+		printf("File has been checked and needs to be built.\n");
+		// Calls build on the dependencies.
+		for(int i = 0; i < dependencyCount; i++) {
+			// Will wait for the dependencies to return before continuing the for loop.
+			build(target.DependencyNames[i], targets, nTargetCount);
+			printf("Dependency Name: %s \n", target.DependencyNames[i]);
+		}
+		// For loop has finished and has traversed completely down.
+		target.Status = 2;
 	}
 	// Target has been built.
+	printf("Target has been built.\n");
 }
 
 /*-------------------------------------------------------END OF HELPER FUNCTIONS-------------------------------------*/
@@ -173,7 +191,12 @@ int main(int argc, char *argv[])
 
   //Phase2: Begins ----------------------------------------------------------------------------------------------------
   /*Your code begins here*/
-	build(TargetName, targets, nTargetCount);
+	int target_index = find_target(TargetName, targets, nTargetCount);
+	if(target_index == 0) {
+		build(TargetName, targets, nTargetCount);
+	} else {
+		printf("Invalid make target, %s\n", TargetName);
+	}
   /*End of your code*/
   //End of Phase2------------------------------------------------------------------------------------------------------
 
