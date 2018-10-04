@@ -20,6 +20,7 @@
 void show_error_message(char * ExecName);
 //Write your functions prototypes here
 void show_targets(target_t targets[], int nTargetCount);
+int build(char TargetName[], target_t targets[], int nTargetCount);
 /*-------------------------------------------------------END OF HELPER FUNCTIONS PROTOTYPES--------------------------*/
 
 
@@ -55,6 +56,100 @@ void show_targets(target_t targets[], int nTargetCount)
 		printf("Command: %s\n", targets[i].Command);
 		printf("\n");
 	}
+}
+
+// Takes in a Target Name, the targets array, and the nTargetCount
+// builds the make file.
+// Target Status':
+// 0 - Has not been error checked.
+// 1 - Has been error checked, ready to build.
+// 2 - Has been built.
+int build(char TargetName[], target_t targets[], int nTargetCount) {
+	int target_index, status, timecheck;
+	pid_t childpid;
+	target_t target, targetDependency;
+	char *tokens[32];
+	target_index = find_target(TargetName, targets, nTargetCount);
+
+	// Verifies that we have a valid target.
+	if(target_index == -1) {
+		printf("Invalid make target, %s\n", TargetName);
+		return -1;
+	}
+
+	target = targets[target_index];
+	// Error checking block.
+	if(target.Status == 0) {
+		// For loop to access target dependencies.
+		for(int i = 0; i < target.DependencyCount; i++) {
+			// Get the target index for the dependency.
+			target_index = find_target(target.DependencyNames[i], targets, nTargetCount);
+
+			// No target in make file, eg. main.c.
+			if(target_index == -1) {
+				// File does not exist, cannot continue.
+				if(does_file_exist(target.DependencyNames[i]) == -1) {
+					printf("Target/File: %s, does not exist.\n", target.DependencyNames[i]);
+					return -1;
+				}
+				if(compare_modification_time(TargetName, target.DependencyNames[i]) == 1) {
+					printf("make4061: '%s' is up to date.\n", TargetName);
+					target.Status = 2;
+				} else {
+					target.Status = 1;
+				}
+			}
+			else {
+				timecheck = compare_modification_time(TargetName, target.DependencyNames[i]);
+				targetDependency = targets[target_index];
+				//Timestamp modification checks.
+				switch(timecheck) {
+					case -1:
+						target.Status = 1;
+						break;
+					case 0:
+						target.Status = 2;
+						printf("make4061: '%s' is up to date.\n", TargetName);
+						targetDependency.Status = 2;
+						return 0;
+					case 1:
+						targetDependency.Status = 2;
+						break;
+					case 2:
+						target.Status = 2;
+						printf("make4061: '%s' is up to date.\n", TargetName);
+						return 0;
+				}
+				if(build(target.DependencyNames[i], targets, nTargetCount) == -1) {
+					return -1;
+				}
+			}
+		}
+	}
+
+	// Fork/Exec/Wait block.
+	if(target.Status == 1 || target.Status == 0) {
+		printf("%s\n", target.Command);
+		parse_into_tokens(target.Command, tokens, " ");
+		childpid = fork();
+		if(childpid > 0) {
+			childpid = wait(&status);
+			if(WEXITSTATUS(status) != 0) {
+				printf("Child exited with error code=%d\n", WEXITSTATUS(status));
+				exit(-1);
+			}
+			target.Status = 2;
+			return 0;
+		}
+		else if(childpid == 0) {
+			execvp(tokens[0], tokens);
+		}
+		else {
+			perror("Fork problem");
+			exit(-1);
+		}
+	}
+	return 0;
 }
 
 /*-------------------------------------------------------END OF HELPER FUNCTIONS-------------------------------------*/
@@ -117,7 +212,7 @@ int main(int argc, char *argv[])
   //Phase1: Warmup-----------------------------------------------------------------------------------------------------
   //Parse the structure elements and print them as mentioned in the Project Writeup
   /* Comment out the following line before Phase2 */
-  show_targets(targets, nTargetCount);
+  // show_targets(targets, nTargetCount);
   //End of Warmup------------------------------------------------------------------------------------------------------
 
   /*
@@ -125,7 +220,7 @@ int main(int argc, char *argv[])
    * If target is not set, set it to default (first target from makefile)
    */
   if(argc == 1)
-	strcpy(TargetName, argv[optind]);    // here we have the given target, this acts as a method to begin the building
+		strcpy(TargetName, argv[optind]);    // here we have the given target, this acts as a method to begin the building
   else
   	strcpy(TargetName, targets[0].TargetName);  // default part is the first target
 
@@ -140,10 +235,9 @@ int main(int argc, char *argv[])
 
   //Phase2: Begins ----------------------------------------------------------------------------------------------------
   /*Your code begins here*/
-
-
-
-
+	if(build(TargetName, targets, nTargetCount) == -1) {
+		return -1;
+	}
   /*End of your code*/
   //End of Phase2------------------------------------------------------------------------------------------------------
 

@@ -68,7 +68,7 @@ int get_file_modification_time(char *lpszFileName)
 
 /*-------------------------------------------------------TIMESTAMP COMPARATOR----------------------------------------*/
 int compare_modification_time(char * lpsz1, char * lpsz2)
-{	
+{
 
 	//Step1: Invoke the stat function in get_file_modification_time to get the timestamp of the files
 	int nTime1 = get_file_modification_time(lpsz1);
@@ -96,7 +96,7 @@ int compare_modification_time(char * lpsz1, char * lpsz2)
 
 
 /*-------------------------------------------------------PARSE TOKENS------------------------------------------------*/
-//Tis is to tokenize the input string
+//This is to tokenize the input string
 int parse_into_tokens(char *input_string, char *tokens[], char *delim)
 {
 	int i=0;
