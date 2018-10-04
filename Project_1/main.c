@@ -92,7 +92,11 @@ int build(char TargetName[], target_t targets[], int nTargetCount) {
 					printf("Target/File: %s, does not exist.\n", target.DependencyNames[i]);
 					return -1;
 				}
-				target.Status = 1;
+				if(compare_modification_time(TargetName, target.DependencyNames[i]) == 0) {
+					target.Status = 2;
+				} else {
+					target.Status = 1;
+				}
 			}
 			else {
 				timecheck = compare_modification_time(TargetName, target.DependencyNames[i]);
