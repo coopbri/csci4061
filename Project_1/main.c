@@ -92,7 +92,8 @@ int build(char TargetName[], target_t targets[], int nTargetCount) {
 					printf("Target/File: %s, does not exist.\n", target.DependencyNames[i]);
 					return -1;
 				}
-				if(compare_modification_time(TargetName, target.DependencyNames[i]) == 0) {
+				if(compare_modification_time(TargetName, target.DependencyNames[i]) == 1) {
+					printf("make4061: '%s' is up to date.\n", TargetName);
 					target.Status = 2;
 				} else {
 					target.Status = 1;
@@ -108,14 +109,16 @@ int build(char TargetName[], target_t targets[], int nTargetCount) {
 						break;
 					case 0:
 						target.Status = 2;
+						printf("make4061: '%s' is up to date.\n", TargetName);
 						targetDependency.Status = 2;
-						break;
+						return 0;
 					case 1:
 						targetDependency.Status = 2;
 						break;
 					case 2:
 						target.Status = 2;
-						break;
+						printf("make4061: '%s' is up to date.\n", TargetName);
+						return 0;
 				}
 				if(build(target.DependencyNames[i], targets, nTargetCount) == -1) {
 					return -1;
