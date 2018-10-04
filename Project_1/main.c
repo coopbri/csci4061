@@ -20,7 +20,7 @@
 void show_error_message(char * ExecName);
 //Write your functions prototypes here
 void show_targets(target_t targets[], int nTargetCount);
-void build(char TargetName[], target_t targets[], int nTargetCount);
+int build(char TargetName[], target_t targets[], int nTargetCount);
 /*-------------------------------------------------------END OF HELPER FUNCTIONS PROTOTYPES--------------------------*/
 
 
@@ -58,70 +58,91 @@ void show_targets(target_t targets[], int nTargetCount)
 	}
 }
 
-// Takes in the targets array with a target_index to get us the target we will be searching for.
-// Status for a target:
-// 0 - Not Ready, hasn't been checked. (This is the default.)
-// 1 - Ready to be executed. (Change to this once all checker has been completed.)
-// 2 - Finished. (Change to this once fork/exec is finished.)
-// 3 - Does not need to be built at all, no fork/exec needed.
-void build(char TargetName[], target_t targets[], int nTargetCount) {
-	// Initial build variable declarations.
-	int target_index = find_target(TargetName, targets, nTargetCount);
-	if(target_index == -1) {
-		// This does not have a target in the makefile, thus just return.
-		return;
-	}
-	target_t target = targets[target_index];
+// Takes in a Target Name, the targets array, and the nTargetCount
+// builds the make file.
+// Target Status':
+// 0 - Has not been error checked.
+// 1 - Has been error checked, ready to build.
+// 2 - Has been built.
+int build(char TargetName[], target_t targets[], int nTargetCount) {
+	int target_index, status, timecheck;
 	pid_t childpid;
-	int status;
-	char *tokens[128];
-	int nTokens = parse_into_tokens(target.Command, tokens, " ");
-	int dependencyCount = target.DependencyCount;
+	target_t target, targetDependency;
+	char *tokens[32];
+	target_index = find_target(TargetName, targets, nTargetCount);
 
-	// Target has not been checked off
-	while(target.Status == 0) {
-		// File does not exist yet.
-		if(does_file_exist(target.TargetName) == -1) {
-			// Since file does not exist no more error checking.
-			// Exit while loop.
-			target.Status = 1;
-		}
-		// File does exist and must be checked for modification time.
-		else {
-			printf("File does exist and is needed to be checked.\n");
-			// Do modification time checking later.
-			target.Status = 1;
+	// Verifies that we have a valid target.
+	if(target_index == -1) {
+		printf("Invalid make target, %s\n", TargetName);
+		return -1;
+	}
+
+	target = targets[target_index];
+	// Error checking block.
+	if(target.Status == 0) {
+		// For loop to access target dependencies.
+		for(int i = 0; i < target.DependencyCount; i++) {
+			// Get the target index for the dependency.
+			target_index = find_target(target.DependencyNames[i], targets, nTargetCount);
+
+			// No target in make file, eg. main.c.
+			if(target_index == -1) {
+				// File does not exist, cannot continue.
+				if(does_file_exist(target.DependencyNames[i]) == -1) {
+					printf("Target/File: %s, does not exist.\n", target.DependencyNames[i]);
+					return -1;
+				}
+				target.Status = 1;
+			}
+			else {
+				timecheck = compare_modification_time(TargetName, target.DependencyNames[i]);
+				targetDependency = targets[target_index];
+				//Timestamp modification checks.
+				switch(timecheck) {
+					case -1:
+						target.Status = 1;
+						break;
+					case 0:
+						target.Status = 2;
+						targetDependency.Status = 2;
+						break;
+					case 1:
+						targetDependency.Status = 2;
+						break;
+					case 2:
+						target.Status = 2;
+						break;
+				}
+				if(build(target.DependencyNames[i], targets, nTargetCount) == -1) {
+					return -1;
+				}
+			}
 		}
 	}
-	// Target has been checked and needs to be built.
-	while(target.Status == 1) {
-		// Target must not be checked for dependencies.
-		printf("File has been checked and needs to be built.\n");
-		// Calls build on the dependencies.
-		for(int i = 0; i < dependencyCount; i++) {
-			// Will wait for the dependencies to return before continuing the for loop.
-			build(target.DependencyNames[i], targets, nTargetCount);
-			printf("Dependency Name: %s \n", target.DependencyNames[i]);
-		}
-		// For loop has finished and has traversed completely down fork/exec/wait.
+
+	// Fork/Exec/Wait block.
+	if(target.Status == 1 || target.Status == 0) {
+		printf("%s\n", target.Command);
+		parse_into_tokens(target.Command, tokens, " ");
 		childpid = fork();
 		if(childpid > 0) {
-			// Wait happens here.
 			childpid = wait(&status);
+			if(WEXITSTATUS(status) != 0) {
+				printf("Child exited with error code=%d\n", WEXITSTATUS(status));
+				exit(-1);
+			}
 			target.Status = 2;
+			return 0;
 		}
 		else if(childpid == 0) {
-			// Exec happens here.
 			execvp(tokens[0], tokens);
 		}
 		else {
-			// Errors happen here.
 			perror("Fork problem");
 			exit(-1);
 		}
 	}
-	// Target has been built.
-	printf("Target has been built.\n");
+	return 0;
 }
 
 /*-------------------------------------------------------END OF HELPER FUNCTIONS-------------------------------------*/
@@ -207,11 +228,8 @@ int main(int argc, char *argv[])
 
   //Phase2: Begins ----------------------------------------------------------------------------------------------------
   /*Your code begins here*/
-	int target_index = find_target(TargetName, targets, nTargetCount);
-	if(target_index == 0) {
-		build(TargetName, targets, nTargetCount);
-	} else {
-		printf("Invalid make target, %s\n", TargetName);
+	if(build(TargetName, targets, nTargetCount) == -1) {
+		return -1;
 	}
   /*End of your code*/
   //End of Phase2------------------------------------------------------------------------------------------------------
