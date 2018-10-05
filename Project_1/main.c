@@ -1,10 +1,11 @@
 /* CSci4061 F2018 Assignment 1
-* login: cselabs_login_name                           (update)
-* date : mm/dd/yy                                     (update)
-* name: Brian Cooper, Chase Rogness, Jared Erlien
-* id:     coope824,     rogne066,      erlie003   */
+* login: cselabs_login_name (whoever submits)
+* date:  10/05/18
+* name:  Brian Cooper, Chase Rogness, Jared Erlien
+* id:      coope824,     rogne066,      erlie003   */
 
-// This is the main file for the code
+// Main file for the code
+
 #include <errno.h>
 #include <fcntl.h>
 #include <stdio.h>
@@ -13,21 +14,19 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
-
 #include "util.h"
 
-/*-------------------------------------------------------HELPER FUNCTIONS PROTOTYPES---------------------------------*/
+/*-----------------------------------------HELPER FUNCTIONS PROTOTYPES-----------------------------------------------*/
 void show_error_message(char * ExecName);
-//Write your functions prototypes here
 void show_targets(target_t targets[], int nTargetCount);
 int build(char TargetName[], target_t targets[], int nTargetCount);
-/*-------------------------------------------------------END OF HELPER FUNCTIONS PROTOTYPES--------------------------*/
+/*-------------------------------------END OF HELPER FUNCTIONS PROTOTYPES--------------------------------------------*/
 
 
-/*-------------------------------------------------------HELPER FUNCTIONS--------------------------------------------*/
+/*-----------------------------------------------HELPER FUNCTIONS----------------------------------------------------*/
 
-//This is the function for writing an error to the stream
-//It prints the same message in all the cases
+// This is the function for writing an error to the stream.
+// It prints the same message in all the cases
 void show_error_message(char * ExecName)
 {
 	fprintf(stderr, "Usage: %s [options] [target] : only single target is allowed.\n", ExecName);
@@ -36,12 +35,9 @@ void show_error_message(char * ExecName)
 	exit(0);
 }
 
-//Write your functions here
-
-//Phase1: Warmup phase for parsing the structure here. Do it as per the PDF (Writeup)
+// Phase 1: Warmup for parsing the structure here. Do it as per the project writeup
 void show_targets(target_t targets[], int nTargetCount)
 {
-	//Write your warmup code here
 	for(int i = 0; i < nTargetCount; i++) {
 		int dependencyCount = targets[i].DependencyCount;
 		printf("Target Name: %s\n", targets[i].TargetName);
@@ -58,7 +54,7 @@ void show_targets(target_t targets[], int nTargetCount)
 	}
 }
 
-// Takes in a Target Name, the targets array, and the nTargetCount
+// Takes in a target name, the targets array, and the nTargetCount
 // builds the make file.
 // Target Status':
 // 0 - Has not been error checked.
@@ -102,7 +98,7 @@ int build(char TargetName[], target_t targets[], int nTargetCount) {
 			else {
 				timecheck = compare_modification_time(TargetName, target.DependencyNames[i]);
 				targetDependency = targets[target_index];
-				//Timestamp modification checks.
+				// Timestamp modification checks.
 				switch(timecheck) {
 					case -1:
 						target.Status = 1;
@@ -151,12 +147,12 @@ int build(char TargetName[], target_t targets[], int nTargetCount) {
 	}
 	return 0;
 }
+/*--------------------------------------------------END OF HELPER FUNCTIONS------------------------------------------*/
 
-/*-------------------------------------------------------END OF HELPER FUNCTIONS-------------------------------------*/
 
 
 /*-------------------------------------------------------MAIN PROGRAM------------------------------------------------*/
-//Main commencement
+// Main commencement
 int main(int argc, char *argv[])
 {
   target_t targets[MAX_NODES];
@@ -173,47 +169,46 @@ int main(int argc, char *argv[])
   char *format = "f:h";
   char *temp;
 
-  //Getopt function is used to access the command line arguments. However there can be arguments which may or may not need the parameters after the command
-  //Example -f <filename> needs a finename, and therefore we need to give a colon after that sort of argument
-  //Ex. f: for h there won't be any argument hence we are not going to do the same for h, hence "f:h"
+  // Getopt function is used to access the command line arguments. 
+  // However, there can be arguments which may or may not need the parameters after the command
+  // Example -f <filename> needs a finename, and therefore we need to give a colon after that sort of argument
+  // Ex. f: for h there won't be any argument hence we are not going to do the same for h, hence "f:h"
   while((ch = getopt(argc, argv, format)) != -1)
   {
 	  switch(ch)
 	  {
 	  	  case 'f':
 	  		  temp = strdup(optarg);
-	  		  strcpy(Makefile, temp);  // here the strdup returns a string and that is later copied using the strcpy
-	  		  free(temp);	//need to manually free the pointer
+	  		  strcpy(Makefile, temp);  // The strdup returns a string which is later copied using the strcpy
+	  		  free(temp);	// Free the temporary pointer
 	  		  break;
-
 	  	  case 'h':
 	  	  default:
 	  		  show_error_message(argv[0]);
 	  		  exit(1);
 	  }
-
   }
 
   argc -= optind;
-  if(argc > 1)   //Means that we are giving more than 1 target which is not accepted
+  if(argc > 1)   // More than 1 target, which is not accepted
   {
 	  show_error_message(argv[0]);
-	  return -1;   //This line is not needed
+	  return -1;   // This line is not needed
   }
 
   /* Init Targets */
-  memset(targets, 0, sizeof(targets));   //initialize all the nodes first, just to avoid the valgrind checks
+  memset(targets, 0, sizeof(targets));   // Initialize all the nodes first (to avoid the Valgrind checks)
 
   /* Parse graph file or die, This is the main function to perform the toplogical sort and hence populate the structure */
   if((nTargetCount = parse(Makefile, targets)) == -1)  //here the parser returns the starting address of the array of the structure. Here we gave the makefile and then it just does the parsing of the makefile and then it has created array of the nodes
 	  return -1;
 
 
-  //Phase1: Warmup-----------------------------------------------------------------------------------------------------
-  //Parse the structure elements and print them as mentioned in the Project Writeup
-  /* Comment out the following line before Phase2 */
+  // Start of Phase 1
+  //Parse the structure elements and print them as mentioned in the project writeup
+  /* Comment out the following line before Phase 2 */
   // show_targets(targets, nTargetCount);
-  //End of Warmup------------------------------------------------------------------------------------------------------
+  // End of Phase 1
 
   /*
    * Set Targetname
@@ -233,14 +228,12 @@ int main(int argc, char *argv[])
    * found in Makefile.
    */
 
-  //Phase2: Begins ----------------------------------------------------------------------------------------------------
-  /*Your code begins here*/
+  // Start of Phase 2
 	if(build(TargetName, targets, nTargetCount) == -1) {
 		return -1;
 	}
-  /*End of your code*/
-  //End of Phase2------------------------------------------------------------------------------------------------------
+  // End of Phase 2
 
   return 0;
 }
-/*-------------------------------------------------------END OF MAIN PROGRAM------------------------------------------*/
+/*----------------------------------------------END OF MAIN PROGRAM------------------------------------------------*/
