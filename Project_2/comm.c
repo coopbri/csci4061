@@ -55,7 +55,7 @@ int recv_fd(int socket, int n, int* fds) {
 	return 0;
 }
 
-int connect_to_server(char * connect_point, char * user_id, int pipe_to_user[2], int pipe_to_server[2])
+int connect_to_server(char * connect_point, char * user_id, int pipe_user_reading_from_server[2], int pipe_user_writing_to_server[2])
 {
 	signal(SIGPIPE,SIG_IGN);
 	struct sockaddr_un addr;
@@ -84,12 +84,12 @@ int connect_to_server(char * connect_point, char * user_id, int pipe_to_user[2],
 		return -1;
 	}
 
-	if (recv_fd(server_fd, 2, pipe_to_user) !=0) {
+	if (recv_fd(server_fd, 2, pipe_user_reading_from_server) !=0) {
 		printf("Error in recv_fd\n");
 		return -1;
 	}
 
-	if (recv_fd(server_fd, 2, pipe_to_server) != 0) {
+	if (recv_fd(server_fd, 2, pipe_user_writing_to_server) != 0) {
 		printf("Error in recv_fd\n");
 		return -1;
 	}
@@ -137,7 +137,7 @@ int setup_connection(char * connect_point)
 	fcntl(g_sfd, F_SETFL, O_NONBLOCK);
 }
 
-int get_connection(char * user_id, int pipe_to_user [2], int pipe_to_server[2])
+int get_connection(char * user_id, int pipe_child_writing_to_user[2], int pipe_child_reading_from_user[2])
 {
 	int cfd = accept(g_sfd, NULL, NULL);
 
@@ -145,13 +145,13 @@ int get_connection(char * user_id, int pipe_to_user [2], int pipe_to_server[2])
 		//fork and sotre client info
 		//int ret = fork();
 
-		if (pipe(pipe_to_user) < 0 || pipe(pipe_to_server) < 0) {
+		if (pipe(pipe_child_writing_to_user) < 0 || pipe(pipe_child_reading_from_user) < 0) {
 			perror("Failed to create pipe\n");
 			return -1;
 		}
 
-		send_fd(cfd, pipe_to_user, 2);
-		send_fd(cfd, pipe_to_server, 2);
+		send_fd(cfd, pipe_child_writing_to_user, 2);
+		send_fd(cfd, pipe_child_reading_from_user, 2);
 
 		if(read(cfd, user_id, MAX_USER_ID) == -1) {
 			perror("Failed to get user id");

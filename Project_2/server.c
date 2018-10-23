@@ -231,7 +231,7 @@ void init_user_list(USER * user_list) {
 int main(int argc, char * argv[])
 {
 	int nbytes;
-	setup_connection("YOUR_UNIQUE_ID"); // Specifies the connection point as argument. Connection point is used to specify path to the named pipe.
+	setup_connection("YOUR_UNIQUE_ID"); // Specifies the connection point as argument.
 
 	USER user_list[MAX_USER];
 	init_user_list(user_list);   // Initialize user list
@@ -245,8 +245,8 @@ int main(int argc, char * argv[])
 		/* ------------------------YOUR CODE FOR MAIN--------------------------------*/
 
 		// Handling a new connection using get_connection
-		int pipe_to_server[2];
-		int pipe_to_user[2];
+		int pipe_SERVER_reading_from_child[2];
+		int pipe_SERVER_writing_to_child[2];
 		char user_id[MAX_USER_ID];
 
 		// Check max user and same user id

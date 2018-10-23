@@ -16,6 +16,8 @@ void main(int argc, char * argv[]) {
 
 	int pipe_to_user[2], pipe_to_server[2];
 
+	// You will need to get user name as a parameter, argv[1].
+
 	if(connect_to_server("YOUR_UNIQUE_ID", argv[1], pipe_to_user, pipe_to_server) == -1) {
 		exit(-1);
 	}
