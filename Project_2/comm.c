@@ -30,7 +30,7 @@ void send_fd(int socket, int *fds, int n)  // send fd by socket
 
 	if (sendmsg (socket, &msg, 0) < 0) {
 		printf("Failed to send message");
-	}	
+	}
 }
 
 int recv_fd(int socket, int n, int* fds) {
@@ -99,7 +99,7 @@ int connect_to_server(char * connect_point, char * user_id, int pipe_user_readin
 	return 0;
 }
 
-int setup_connection(char * connect_point) 
+int setup_connection(char * connect_point)
 {
 	signal(SIGPIPE,SIG_IGN);
 	struct sockaddr_un addr;

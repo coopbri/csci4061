@@ -1,38 +1,43 @@
-#include <stdio.h>
-#include <unistd.h>
+#include "comm.h"
+#include <errno.h>
 #include <fcntl.h>
 #include <stdio.h>
-#include <errno.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
+#include <sys/socket.h>
 #include <sys/un.h>
 #include <sys/wait.h>
-#include <sys/socket.h>
-#include "comm.h"
+#include <unistd.h>
 
-/* -------------------------Main function for the client ----------------------*/
-void main(int argc, char * argv[]) {
+#include "util.h"
 
-	int pipe_user_reading_from_server[2], pipe_user_writing_to_server[2];
+/* -------------------------Main function for the client----------------------*/
+void main(int argc, char *argv[]) {
 
-	// You will need to get user name as a parameter, argv[1].
+  int pipe_user_reading_from_server[2], pipe_user_writing_to_server[2];
 
-	if(connect_to_server("YOUR_UNIQUE_ID", argv[1], pipe_user_reading_from_server, pipe_user_writing_to_server) == -1) {
-		exit(-1);
-	}
+  // You will need to get user name as a parameter, argv[1].
 
-	/* -------------- YOUR CODE STARTS HERE -----------------------------------*/
+  if (connect_to_server("YOUR_UNIQUE_ID", argv[1], pipe_user_reading_from_server,
+                        pipe_user_writing_to_server) == -1) {
+    exit(-1);
+  }
+/* -------------- YOUR CODE STARTS HERE -----------------------------------*/
+  char stuff[50];
 
-	
-	// poll pipe retrieved and print it to sdiout
+  close(pipe_user_writing_to_server[0]); //close reading end of this pipe
+  print_prompt(argv[1]);
 
-	// Poll stdin (input from the terminal) and send it to server (child process) via pipe
+  while(1){
+    usleep(40000);
+  }
 
-		
-	/* -------------- YOUR CODE ENDS HERE -----------------------------------*/
+  // poll pipe retrieved and print it to sdiout
+
+  // Poll stdin (input from the terminal) and send it to server (child process)
+  // via pipe
+
+  /* -------------- YOUR CODE ENDS HERE -----------------------------------*/
 }
 
-/*--------------------------End of main for the client --------------------------*/
-
-
+/*--------------------------End of main for the client--------------------------*/
