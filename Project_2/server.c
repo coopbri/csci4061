@@ -236,73 +236,72 @@ int main(int argc, char *argv[]) {
   fcntl(0, F_SETFL, fcntl(0, F_GETFL) | O_NONBLOCK);
   print_prompt("admin");
 
-  int test = 0;
-  int c;
   while (1) {
     /* ------------------------YOUR CODE FOR MAIN--------------------------------*/
 
     // Handling a new connection using get_connection
     int pipe_SERVER_reading_from_child[2];
     int pipe_SERVER_writing_to_child[2];
+    int pipe_child_writing_to_user[2];
+    int pipe_child_reading_from_user[2];
     char user_id[MAX_USER_ID];
-    char testBuf[50];
-    char message[50] = "";
-    int d = 0;
+    char testbuff[30];
+    char childbuff[30];
+    int garbage = 0;
 
-    //close(pipe_SERVER_reading_from_child[1]);
+    // which pipes read from user and what do the pipes in get connection act as
 
-    //read(pipe_SERVER_reading_from_child[0], user_id, MAX_USER_ID);
-    if (test == 0){
-      while((test = get_connection(user_id, pipe_SERVER_writing_to_child, pipe_SERVER_reading_from_child)) == -1){
-        printf("nope lol\n");
-        test = 1;
-        usleep(600000);
+    // if get_connect == True
+    // check user list
+    // then fork
+    if (get_connection(user_id, pipe_child_writing_to_user, pipe_child_reading_from_user) == 0)
+    {
+      printf("\nConnection made\nUserID: %s\n", user_id);
+      int status = 0;
+      //printf("test1\n");
+      //memset
+      // this is to initialize the pipes for server
+      if (pipe(pipe_SERVER_reading_from_child) == -1)
+      {
+      	fprintf(stderr, "Pipe Failed");
+      	return 1;
+      }
+      if (pipe(pipe_SERVER_writing_to_child) == -1)
+      {
+      	fprintf(stderr, "Pipe Failed");
+      	return 1;
+      }
+      while(1) // this is trying to make messaging continuous
+      {
+        pid_t pidID = fork();
+        if (pidID == 0) // child process w/2 additional pipes for bidirectional comms
+        {
+          //while loop for input
+          //nonblock
+          while(read(pipe_child_reading_from_user[0], childbuff, 30) == -1)
+          {
+
+            usleep(600000);
+          }
+          close(pipe_child_reading_from_user[0]);
+          //printf("test3\n");
+          printf("Child talking: %s", childbuff);
+          write(pipe_SERVER_reading_from_child[1], childbuff, strlen(childbuff));
+          //printf("test4\n");
+          exit(0); //remove after
+        }
+        if (pidID > 0) // parent process (server)
+        {
+          wait(&status); //wait for child to exit this ill have to remove lol
+          //nonblock whileloop
+          read(pipe_SERVER_reading_from_child[0], testbuff, 30);
+          printf("Server output: %s", testbuff);
+          close(pipe_SERVER_reading_from_child[0]);
+        }
       }
     }
-    test = 1;
-    printf("Connection made\nUserID: %s\n", user_id);
-    print_prompt("admin");
-    while((scanf("%d enter", &d)) || d != -1){
-      printf("%s %d\n", message, d);
-      usleep(600000000);
-    }
-    printf("Input detected\n");
-    usleep(600000000);
-    /*
-    int child_to_server[2];
-    int child_to_user[2];
+    usleep(60000);
 
-    if (pipe(child_to_server) == -1) {
-      fprintf(stderr, "Pipe Failed\n");
-      return 1;
-    }
-    if (pipe(child_to_user) == -1) {
-      fprintf(stderr, "PipeFailed\n");
-      return 1;
-    }
-
-    p = fork();
-    if (p < 0) {
-      fprintf(stderr, "fork Failed\n");
-      return 1;
-    } else if (p > 0) { // Parent process
-      read(pipe_SERVER_reading_from_child[0], testBuf, 50);
-      printf("%s\n", testBuf);
-      close(pipe_SERVER_reading_from_child[0]);
-    } else { // child process
-      write(child_to_server[1], message, 50);
-      close(child_to_server[1]);
-      usleep(50);
-      exit(0);
-    }
-    */
-/*
-    read(pipe_SERVER_reading_from_child[0], testBuf, 50);
-    extract_text(testBuf, message);//read(pipe_SERVER_reading_from_child[0], message, 50);
-    printf("%s", message);
-    close(pipe_SERVER_reading_from_child[0]);
-    usleep(30);
-    */
     // Check max user and same user id
 
     // Child process: poli users and SERVER
