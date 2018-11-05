@@ -24,8 +24,6 @@ void main(int argc, char *argv[]) {
   }
 /* -------------- YOUR CODE STARTS HERE -----------------------------------*/
   char stuff[50];
-  fcntl(0, F_SETFL, fcntl(0, F_GETFL) | O_NONBLOCK); // sets stdin as nonblocking
-
 
   close(pipe_user_writing_to_server[0]); //close reading end of this pipe
   while(1)
@@ -33,7 +31,9 @@ void main(int argc, char *argv[]) {
     print_prompt(argv[1]);
 
     while(read(0, stuff, 50) == -1){ usleep(50);} // non blocking read from stdin
-    write(pipe_user_writing_to_server[1], stuff, strlen(stuff) + 1);
+    write(pipe_user_writing_to_server[1], stuff, strlen(stuff));
+    memset(stuff, 0, sizeof(stuff)); //clear buffer
+
     printf("successfully wrote\n");
     usleep(40000);
   }

@@ -7,8 +7,7 @@
 #include <string.h>
 #include <sys/wait.h>
 
-/* -----------Functions that implement server functionality
- * -------------------------*/
+/* -----------Functions that implement server functionality-------------------------*/
 
 /*
  * Returns the empty slot on success, or -1 on failure
@@ -77,8 +76,13 @@ int list_users(int idx, USER *user_list) {
 int add_user(int idx, USER *user_list, int pid, char *user_id,
              int pipe_to_child, int pipe_to_parent) {
   // populate the user_list structure with the arguments passed to this function
+  strcpy(user_list[idx].m_user_id, user_id);
+  user_list[idx].m_pid = pid;
+  user_list[idx].m_fd_to_user= pipe_to_child;
+  user_list[idx].m_fd_to_server = pipe_to_parent;
+  user_list[idx].m_status = SLOT_FULL;
   // return the index of user added
-  return 0;
+  return idx;
 }
 
 /*
@@ -220,11 +224,9 @@ void init_user_list(USER *user_list) {
   }
 }
 
-/* ---------------------End of the functions that implementServer functionality
- * -----------------*/
+/* ---------------------End of the functions that implementServer functionality-----------------*/
 
-/* ---------------------Start of the Main function
- * ----------------------------------------------*/
+/* ---------------------Start of the Main function----------------------------------------------*/
 int main(int argc, char *argv[]) {
   int nbytes;
   setup_connection("YOUR_UNIQUE_ID"); // Specifies the connection point as argument.
@@ -245,63 +247,67 @@ int main(int argc, char *argv[]) {
     int pipe_child_writing_to_user[2];
     int pipe_child_reading_from_user[2];
     char user_id[MAX_USER_ID];
-    char testbuff[30];
-    char childbuff[30];
-    int garbage = 0;
+    char server_Buff[30];
+    char child_Buff[30];
+    int empty_idx;
+    int new_user_idx;
 
     // which pipes read from user and what do the pipes in get connection act as
 
     // if get_connect == True
     // check user list
     // then fork
-    if (get_connection(user_id, pipe_child_writing_to_user, pipe_child_reading_from_user) == 0)
-    {
+    if (get_connection(user_id, pipe_child_writing_to_user, pipe_child_reading_from_user) != -1) {
       printf("\nConnection made\nUserID: %s\n", user_id);
-      int status = 0;
-      //printf("test1\n");
       //memset
       // this is to initialize the pipes for server
-      if (pipe(pipe_SERVER_reading_from_child) == -1)
-      {
+      if (pipe(pipe_SERVER_reading_from_child) == -1) {
       	fprintf(stderr, "Pipe Failed");
       	return 1;
       }
-      if (pipe(pipe_SERVER_writing_to_child) == -1)
-      {
-      	fprintf(stderr, "Pipe Failed");
-      	return 1;
+      if (pipe(pipe_SERVER_writing_to_child) == -1) {
+        fprintf(stderr, "Pipe Failed");
+        return 1;
       }
-      while(1) // this is trying to make messaging continuous
-      {
-        pid_t pidID = fork();
-        if (pidID == 0) // child process w/2 additional pipes for bidirectional comms
-        {
-          //while loop for input
-          //nonblock
-          while(read(pipe_child_reading_from_user[0], childbuff, 30) == -1)
-          {
-
-            usleep(600000);
-          }
-          close(pipe_child_reading_from_user[0]);
-          //printf("test3\n");
-          printf("Child talking: %s", childbuff);
-          write(pipe_SERVER_reading_from_child[1], childbuff, strlen(childbuff));
-          //printf("test4\n");
-          exit(0); //remove after
+      pid_t pidID = fork();
+      if (pidID == 0) { // child process w/2 additional pipes for bidirectional comms
+        // while loop for input
+        // nonblock
+        while (read(pipe_child_reading_from_user[0], child_Buff, 30) == -1) {
+          usleep(600000);
         }
-        if (pidID > 0) // parent process (server)
-        {
-          wait(&status); //wait for child to exit this ill have to remove lol
-          //nonblock whileloop
-          read(pipe_SERVER_reading_from_child[0], testbuff, 30);
-          printf("Server output: %s", testbuff);
-          close(pipe_SERVER_reading_from_child[0]);
+        // close(pipe_child_reading_from_user[0]);
+        write(pipe_SERVER_reading_from_child[1], child_Buff, strlen(child_Buff));
+        memset(child_Buff, 0, sizeof(child_Buff)); // clear buffer
+
+      } else {  // parent process
+        printf("Function Empty: %d\n", find_empty_slot(user_list));
+        empty_idx = find_empty_slot(user_list);
+        if (empty_idx == -1) { // checks if theres an empty slot for new user
+          printf("All slots full\n");
+        } else {
+          printf("Empty idx %d\n", empty_idx);
+          new_user_idx = add_user(empty_idx, user_list, pidID, user_id, pipe_SERVER_writing_to_child[1], pipe_SERVER_reading_from_child[0]); // adds new user to slot
+          printf("User Index %d\n", new_user_idx);
+        }
+      }
+      // close(pipe_SERVER_reading_from_child[0]);
+    } else {
+      /*this is to parse through every user and read from their input then do multiple
+      else statements to check what commands the users send */
+
+      for(int i = 0; i < MAX_USER; i++) {
+        if (user_list[i].m_status == SLOT_FULL) {
+          while (read(user_list[i].m_fd_to_server, server_Buff, 30) == -1) {;}
+          printf("Server output: %s\n", server_Buff);
+          printf("UserPid: %d\n", user_list[i].m_pid);
+          printf("UserSlot: %d\n", user_list[i].m_status);
+          printf("UserID: %s\n", user_list[i].m_user_id);
+          memset(server_Buff, 0, sizeof(server_Buff)); // clear buffer
         }
       }
     }
-    usleep(60000);
-
+    //printf("test\n");
     // Check max user and same user id
 
     // Child process: poli users and SERVER
