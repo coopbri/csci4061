@@ -59,7 +59,7 @@ int list_users(int idx, USER *user_list) {
   }
 
   if (idx < 0) {
-    printf(buf);
+    printf("%s",buf);
     printf("\n");
   } else {
     /* write to the given pipe fd */
@@ -274,6 +274,10 @@ int main(int argc, char *argv[]) {
       pipe(pipe_SERVER_writing_to_child);
       empty_idx = find_empty_slot(user_list);
 
+      fcntl(pipe_SERVER_reading_from_child[0], F_SETFL, fcntl(pipe_SERVER_reading_from_child[0], F_GETFL) | O_NONBLOCK);
+      fcntl(pipe_SERVER_reading_from_child[1], F_SETFL, fcntl(pipe_SERVER_reading_from_child[1], F_GETFL) | O_NONBLOCK);
+      fcntl(pipe_SERVER_writing_to_child[1], F_SETFL, fcntl(pipe_SERVER_writing_to_child[1], F_GETFL) | O_NONBLOCK);
+      fcntl(pipe_SERVER_writing_to_child[0], F_SETFL, fcntl(pipe_SERVER_writing_to_child[0], F_GETFL) | O_NONBLOCK);
       //if slots are full it prevents server from forking and making more space
       if((find_empty_slot(user_list) == -1) || (find_user_index(user_list, user_id) != -1)) {
         printf("Slots full\n");
