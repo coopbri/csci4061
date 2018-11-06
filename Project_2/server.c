@@ -19,8 +19,6 @@ int find_empty_slot(USER *user_list) {
   for (i = 0; i < MAX_USER; i++) {
     if (user_list[i].m_status == SLOT_EMPTY) {
       return i;
-    } else {
-      printf("user found %s\n", user_list[i].m_user_id);
     }
   }
   return -1;
@@ -259,19 +257,16 @@ int main(int argc, char *argv[]) {
     int pipe_child_writing_to_user[2];
     int pipe_child_reading_from_user[2];
     char user_id[MAX_USER_ID];
-    int empty_idx;
 
 
+    /* current issues:
+    stupid thing wont fully let a client stay on the user list
+    */
 
-    // which pipes read from user and what do the pipes in get connection act as
-
-    // if get_connect == True
-    // check user list
-    // then fork
-    empty_idx = find_empty_slot(user_list);
-    printf("Empty idx %d\n", empty_idx);
     if (get_connection(user_id, pipe_child_writing_to_user, pipe_child_reading_from_user) != -1) {
+      int empty_idx;
       int new_user_idx;
+      int status;
       printf("\nConnection made\nUserID: %s\n", user_id);
       //memset
       // this is to initialize the pipes for server
@@ -291,14 +286,18 @@ int main(int argc, char *argv[]) {
         int fd_read_from_server = pipe_SERVER_writing_to_child[0];
 
         if (pidID == 0) { // child process w/2 additional pipes for bidirectional comms
-          // while loop for input nonblock
-          while (read(pipe_child_reading_from_user[0], buf, MAX_MSG) == -1) {
-            usleep(600);
+          while(1){
+            // while loop for input nonblock
+            while (read(pipe_child_reading_from_user[0], buf, MAX_MSG) == -1) {
+              usleep(600);
+            }
+            // close(pipe_child_reading_from_user[0]);
+            write(pipe_SERVER_reading_from_child[1], buf, strlen(buf));
+            memset(buf, 0, sizeof(buf)); // clear buffer
           }
-          // close(pipe_child_reading_from_user[0]);
-          write(pipe_SERVER_reading_from_child[1], buf, strlen(buf));
-          memset(buf, 0, sizeof(buf)); // clear buffer
 
+
+          exit(status);
         } else {  // parent process
           printf("Empty idx %d\n", empty_idx);
           add_user(empty_idx, user_list, pidID, user_id,fd_write_to_child,fd_child_write_to_server, fd_server_read_from_child, fd_read_from_server); // adds new user to slot
