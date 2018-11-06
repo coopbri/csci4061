@@ -1,14 +1,15 @@
-#include "comm.h"
-#include <errno.h>
+#include <stdio.h>
+#include <unistd.h>
 #include <fcntl.h>
 #include <stdio.h>
+#include <errno.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/socket.h>
+#include <unistd.h>
 #include <sys/un.h>
 #include <sys/wait.h>
-#include <unistd.h>
-
+#include <sys/socket.h>
+#include "comm.h"
 #include "util.h"
 
 /* -------------------------Main function for the client----------------------*/
@@ -23,14 +24,14 @@ void main(int argc, char *argv[]) {
     exit(-1);
   }
 /* -------------- YOUR CODE STARTS HERE -----------------------------------*/
-  char stuff[50];
+  char stuff[MAX_MSG];
 
   close(pipe_user_writing_to_server[0]); //close reading end of this pipe
   while(1)
   {
     print_prompt(argv[1]);
 
-    while(read(0, stuff, 50) == -1){ usleep(50);} // non blocking read from stdin
+    while(read(0, stuff, MAX_MSG) == -1){ usleep(50);} // non blocking read from stdin
     write(pipe_user_writing_to_server[1], stuff, strlen(stuff));
     memset(stuff, 0, sizeof(stuff)); //clear buffer
 

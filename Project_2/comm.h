@@ -12,8 +12,10 @@ typedef enum slot_status { SLOT_FULL = 0, SLOT_EMPTY = 1 } SLOT_STATUS;
 typedef struct _userInfo {
   int m_pid;
   char m_user_id[MAX_USER_ID];
-  int m_fd_to_user;
-  int m_fd_to_server;
+  int m_fd_write_to_server;
+  int m_fd_read_from_child;
+  int m_fd_write_to_child;
+  int m_fd_read_from_server;
   int m_status;
 } USER;
 

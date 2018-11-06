@@ -19,6 +19,8 @@ int find_empty_slot(USER *user_list) {
   for (i = 0; i < MAX_USER; i++) {
     if (user_list[i].m_status == SLOT_EMPTY) {
       return i;
+    } else {
+      printf("user found %s\n", user_list[i].m_user_id);
     }
   }
   return -1;
@@ -63,7 +65,8 @@ int list_users(int idx, USER *user_list) {
     printf("\n");
   } else {
     /* write to the given pipe fd */
-    if (write(user_list[idx].m_fd_to_user, buf, strlen(buf) + 1) < 0)
+    //write(user_list[idx].m_fd_write_to_child, buf, strlen(buf) + 1) < 0
+    if (write(user_list[idx].m_fd_write_to_child, buf, strlen(buf) + 1) < 0)
       perror("writing to server shell");
   }
 
@@ -74,13 +77,16 @@ int list_users(int idx, USER *user_list) {
  * add a new user
  */
 int add_user(int idx, USER *user_list, int pid, char *user_id,
-             int pipe_to_child, int pipe_to_parent) {
+             int pipe_write_to_child, int pipe_write_to_server, int pipe_read_from_child,
+             int pipe_read_from_server) {
   // populate the user_list structure with the arguments passed to this function
   strcpy(user_list[idx].m_user_id, user_id);
   user_list[idx].m_pid = pid;
-  user_list[idx].m_fd_to_user= pipe_to_child;
-  user_list[idx].m_fd_to_server = pipe_to_parent;
-  user_list[idx].m_status = SLOT_FULL;
+  user_list[idx].m_fd_write_to_child = pipe_write_to_child;
+  user_list[idx].m_fd_write_to_server = pipe_write_to_server;
+  user_list[idx].m_fd_read_from_child = pipe_read_from_child;
+  user_list[idx].m_fd_read_from_server = pipe_read_from_server;
+  user_list[idx].m_status = 0;
   // return the index of user added
   return idx;
 }
@@ -218,8 +224,14 @@ void init_user_list(USER *user_list) {
   for (i = 0; i < MAX_USER; i++) {
     user_list[i].m_pid = -1;
     memset(user_list[i].m_user_id, '\0', MAX_USER_ID);
+    /*
     user_list[i].m_fd_to_user = -1;
     user_list[i].m_fd_to_server = -1;
+    */
+    user_list[i].m_fd_write_to_server = -1;
+    user_list[i].m_fd_read_from_child = -1;
+    user_list[i].m_fd_write_to_child = -1;
+    user_list[i].m_fd_read_from_server = -1;
     user_list[i].m_status = SLOT_EMPTY;
   }
 }
@@ -247,50 +259,53 @@ int main(int argc, char *argv[]) {
     int pipe_child_writing_to_user[2];
     int pipe_child_reading_from_user[2];
     char user_id[MAX_USER_ID];
-    char server_Buff[30];
-    char child_Buff[30];
     int empty_idx;
-    int new_user_idx;
+
+
 
     // which pipes read from user and what do the pipes in get connection act as
 
     // if get_connect == True
     // check user list
     // then fork
+    empty_idx = find_empty_slot(user_list);
+    printf("Empty idx %d\n", empty_idx);
     if (get_connection(user_id, pipe_child_writing_to_user, pipe_child_reading_from_user) != -1) {
+      int new_user_idx;
       printf("\nConnection made\nUserID: %s\n", user_id);
       //memset
       // this is to initialize the pipes for server
-      if (pipe(pipe_SERVER_reading_from_child) == -1) {
-      	fprintf(stderr, "Pipe Failed");
-      	return 1;
-      }
-      if (pipe(pipe_SERVER_writing_to_child) == -1) {
-        fprintf(stderr, "Pipe Failed");
-        return 1;
-      }
-      pid_t pidID = fork();
-      if (pidID == 0) { // child process w/2 additional pipes for bidirectional comms
-        // while loop for input
-        // nonblock
-        while (read(pipe_child_reading_from_user[0], child_Buff, 30) == -1) {
-          usleep(600000);
-        }
-        // close(pipe_child_reading_from_user[0]);
-        write(pipe_SERVER_reading_from_child[1], child_Buff, strlen(child_Buff));
-        memset(child_Buff, 0, sizeof(child_Buff)); // clear buffer
+      pipe(pipe_SERVER_reading_from_child);
+      pipe(pipe_SERVER_writing_to_child);
+      empty_idx = find_empty_slot(user_list);
 
-      } else {  // parent process
-        printf("Function Empty: %d\n", find_empty_slot(user_list));
-        empty_idx = find_empty_slot(user_list);
-        if (empty_idx == -1) { // checks if theres an empty slot for new user
-          printf("All slots full\n");
-        } else {
+      //if slots are full it prevents server from forking and making more space
+      if((find_empty_slot(user_list) == -1) || (find_user_index(user_list, user_id) != -1)) {
+        printf("Slots full\n");
+      } else {
+        pid_t pidID = fork();
+
+        int fd_child_write_to_server = pipe_SERVER_reading_from_child[0];
+        int fd_server_read_from_child = pipe_SERVER_reading_from_child[1];
+        int fd_write_to_child = pipe_SERVER_writing_to_child[1];
+        int fd_read_from_server = pipe_SERVER_writing_to_child[0];
+
+        if (pidID == 0) { // child process w/2 additional pipes for bidirectional comms
+          // while loop for input nonblock
+          while (read(pipe_child_reading_from_user[0], buf, MAX_MSG) == -1) {
+            usleep(600);
+          }
+          // close(pipe_child_reading_from_user[0]);
+          write(pipe_SERVER_reading_from_child[1], buf, strlen(buf));
+          memset(buf, 0, sizeof(buf)); // clear buffer
+
+        } else {  // parent process
           printf("Empty idx %d\n", empty_idx);
-          new_user_idx = add_user(empty_idx, user_list, pidID, user_id, pipe_SERVER_writing_to_child[1], pipe_SERVER_reading_from_child[0]); // adds new user to slot
-          printf("User Index %d\n", new_user_idx);
+          add_user(empty_idx, user_list, pidID, user_id,fd_write_to_child,fd_child_write_to_server, fd_server_read_from_child, fd_read_from_server); // adds new user to slot
+
         }
       }
+
       // close(pipe_SERVER_reading_from_child[0]);
     } else {
       /*this is to parse through every user and read from their input then do multiple
@@ -298,16 +313,19 @@ int main(int argc, char *argv[]) {
 
       for(int i = 0; i < MAX_USER; i++) {
         if (user_list[i].m_status == SLOT_FULL) {
-          while (read(user_list[i].m_fd_to_server, server_Buff, 30) == -1) {;}
-          printf("Server output: %s\n", server_Buff);
+          while (read(user_list[i].m_fd_write_to_server, buf, MAX_MSG) == -1) {usleep(600);}
+          printf("Server output: %s\n", buf);
+          memset(buf, 0, sizeof(buf)); // clear buffer
+
           printf("UserPid: %d\n", user_list[i].m_pid);
           printf("UserSlot: %d\n", user_list[i].m_status);
           printf("UserID: %s\n", user_list[i].m_user_id);
-          memset(server_Buff, 0, sizeof(server_Buff)); // clear buffer
         }
       }
+
     }
-    //printf("test\n");
+    list_users(-1,user_list);
+    usleep(500000);
     // Check max user and same user id
 
     // Child process: poli users and SERVER
