@@ -28,6 +28,7 @@ void main(int argc, char *argv[]) {
   char feedback[MAX_MSG];
 
   close(pipe_user_writing_to_server[0]); //close reading end of this pipe
+  print_prompt(argv[1]);
   while(1)
   {
     // non blocking read to see what server sends

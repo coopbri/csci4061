@@ -260,28 +260,25 @@ int main(int argc, char *argv[]) {
     int pipe_child_reading_from_user[2];
     char user_id[MAX_USER_ID];
 
-
-    /* current issues:
-    stupid thing wont fully let a client stay on the user list
-    */
-
+    // checks if connection was made if not, the else statement reads any input in buffer
     if (get_connection(user_id, pipe_child_writing_to_user, pipe_child_reading_from_user) != -1) {
       int empty_idx;
       int new_user_idx;
       int status;
       printf("\nConnection made\nUserID: %s\n", user_id);
-      //memset
       // this is to initialize the pipes for server
       pipe(pipe_SERVER_reading_from_child);
       pipe(pipe_SERVER_writing_to_child);
       empty_idx = find_empty_slot(user_list);
 
 
-      //if slots are full it prevents server from forking and making more space
+      // if slots are full it prevents server from forking and making more space
+      // else forks and child-user connection is made
       if((find_empty_slot(user_list) == -1) || (find_user_index(user_list, user_id) != -1)) {
         printf("Slots full\n");
       } else {
 
+        // making pipes non-blocking
         fcntl(pipe_SERVER_reading_from_child[0], F_SETFL, fcntl(pipe_SERVER_reading_from_child[0], F_GETFL) | O_NONBLOCK);
         fcntl(pipe_SERVER_reading_from_child[1], F_SETFL, fcntl(pipe_SERVER_reading_from_child[1], F_GETFL) | O_NONBLOCK);
         fcntl(pipe_SERVER_writing_to_child[1], F_SETFL, fcntl(pipe_SERVER_writing_to_child[1], F_GETFL) | O_NONBLOCK);
@@ -299,7 +296,7 @@ int main(int argc, char *argv[]) {
           fcntl(pipe_child_reading_from_user[0], F_SETFL, fcntl(pipe_child_reading_from_user[0], F_GETFL) | O_NONBLOCK);
           fcntl(pipe_SERVER_reading_from_child[1], F_SETFL, fcntl(pipe_SERVER_reading_from_child[1], F_GETFL) | O_NONBLOCK);
 
-
+          // continuous check if there is something in pipes to read or write
           while(1){
             // while loop for input nonblock
             while (read(pipe_child_reading_from_user[0], buf, MAX_MSG) > 0) {
@@ -313,41 +310,31 @@ int main(int argc, char *argv[]) {
               write(pipe_child_writing_to_user[1], child_buf, MAX_MSG);
               memset(child_buf, 0, sizeof(child_buf));
             }
-            // close(pipe_child_reading_from_user[0]);
             usleep(600);
           }
 
-
+          // exit status will be removed
           exit(status);
         } else {  // parent process
-          printf("Empty idx %d\n", empty_idx);
+          // adds users and their corresponding pipes
           add_user(empty_idx, user_list, pidID, user_id,fd_write_to_child,
-            fd_child_write_to_server, fd_server_read_from_child, fd_read_from_server); // adds new user to slot
+            fd_child_write_to_server, fd_server_read_from_child, fd_read_from_server);
 
         }
       }
 
-      // close(pipe_SERVER_reading_from_child[0]);
     } else {
       /*this is to parse through every user and read from their input then do multiple
       else statements to check what commands the users send */
-
+      
       for(int i = 0; i < MAX_USER; i++) {
-        //printf("loop\n");
         if (user_list[i].m_status == SLOT_FULL) {
-          //printf("Before readding\n");
           while (read(user_list[i].m_fd_write_to_server, buf, MAX_MSG) > 0) {
             usleep(600);
             printf("Server output: %s\n", buf);
             memset(buf, 0, sizeof(buf)); // clear buffer
           }
-          //printf("After reading\n");
 
-          /*
-          printf("UserPid: %d\n", user_list[i].m_pid);
-          printf("UserSlot: %d\n", user_list[i].m_status);
-          printf("UserID: %s\n", user_list[i].m_user_id);
-          */
         }
       }
 
