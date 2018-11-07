@@ -245,6 +245,8 @@ int main(int argc, char *argv[]) {
   init_user_list(user_list); // Initialize user list
 
   char buf[MAX_MSG];
+  char server_buf[MAX_MSG]; // for server buffer
+  char child_buf[MAX_MSG]; // for child buffer
   fcntl(0, F_SETFL, fcntl(0, F_GETFL) | O_NONBLOCK);
   print_prompt("admin");
 
@@ -274,14 +276,17 @@ int main(int argc, char *argv[]) {
       pipe(pipe_SERVER_writing_to_child);
       empty_idx = find_empty_slot(user_list);
 
-      fcntl(pipe_SERVER_reading_from_child[0], F_SETFL, fcntl(pipe_SERVER_reading_from_child[0], F_GETFL) | O_NONBLOCK);
-      fcntl(pipe_SERVER_reading_from_child[1], F_SETFL, fcntl(pipe_SERVER_reading_from_child[1], F_GETFL) | O_NONBLOCK);
-      fcntl(pipe_SERVER_writing_to_child[1], F_SETFL, fcntl(pipe_SERVER_writing_to_child[1], F_GETFL) | O_NONBLOCK);
-      fcntl(pipe_SERVER_writing_to_child[0], F_SETFL, fcntl(pipe_SERVER_writing_to_child[0], F_GETFL) | O_NONBLOCK);
+
       //if slots are full it prevents server from forking and making more space
       if((find_empty_slot(user_list) == -1) || (find_user_index(user_list, user_id) != -1)) {
         printf("Slots full\n");
       } else {
+
+        fcntl(pipe_SERVER_reading_from_child[0], F_SETFL, fcntl(pipe_SERVER_reading_from_child[0], F_GETFL) | O_NONBLOCK);
+        fcntl(pipe_SERVER_reading_from_child[1], F_SETFL, fcntl(pipe_SERVER_reading_from_child[1], F_GETFL) | O_NONBLOCK);
+        fcntl(pipe_SERVER_writing_to_child[1], F_SETFL, fcntl(pipe_SERVER_writing_to_child[1], F_GETFL) | O_NONBLOCK);
+        fcntl(pipe_SERVER_writing_to_child[0], F_SETFL, fcntl(pipe_SERVER_writing_to_child[0], F_GETFL) | O_NONBLOCK);
+
         pid_t pidID = fork();
 
         int fd_child_write_to_server = pipe_SERVER_reading_from_child[0];
@@ -290,21 +295,34 @@ int main(int argc, char *argv[]) {
         int fd_read_from_server = pipe_SERVER_writing_to_child[0];
 
         if (pidID == 0) { // child process w/2 additional pipes for bidirectional comms
+
+          fcntl(pipe_child_reading_from_user[0], F_SETFL, fcntl(pipe_child_reading_from_user[0], F_GETFL) | O_NONBLOCK);
+          fcntl(pipe_SERVER_reading_from_child[1], F_SETFL, fcntl(pipe_SERVER_reading_from_child[1], F_GETFL) | O_NONBLOCK);
+
+
           while(1){
             // while loop for input nonblock
-            while (read(pipe_child_reading_from_user[0], buf, MAX_MSG) == -1) {
+            while (read(pipe_child_reading_from_user[0], buf, MAX_MSG) > 0) {
               usleep(600);
+              write(fd_server_read_from_child, buf, strlen(buf));
+              memset(buf, 0, sizeof(buf)); // clear buffer
+            }
+            // while loop for reading server feedback
+            while(read(pipe_SERVER_writing_to_child[0], child_buf, MAX_MSG) > 0) {
+              usleep(600);
+              write(pipe_child_writing_to_user[1], child_buf, MAX_MSG);
+              memset(child_buf, 0, sizeof(child_buf));
             }
             // close(pipe_child_reading_from_user[0]);
-            write(pipe_SERVER_reading_from_child[1], buf, strlen(buf));
-            memset(buf, 0, sizeof(buf)); // clear buffer
+            usleep(600);
           }
 
 
           exit(status);
         } else {  // parent process
           printf("Empty idx %d\n", empty_idx);
-          add_user(empty_idx, user_list, pidID, user_id,fd_write_to_child,fd_child_write_to_server, fd_server_read_from_child, fd_read_from_server); // adds new user to slot
+          add_user(empty_idx, user_list, pidID, user_id,fd_write_to_child,
+            fd_child_write_to_server, fd_server_read_from_child, fd_read_from_server); // adds new user to slot
 
         }
       }
@@ -315,19 +333,35 @@ int main(int argc, char *argv[]) {
       else statements to check what commands the users send */
 
       for(int i = 0; i < MAX_USER; i++) {
+        //printf("loop\n");
         if (user_list[i].m_status == SLOT_FULL) {
-          while (read(user_list[i].m_fd_write_to_server, buf, MAX_MSG) == -1) {usleep(600);}
-          printf("Server output: %s\n", buf);
-          memset(buf, 0, sizeof(buf)); // clear buffer
+          //printf("Before readding\n");
+          while (read(user_list[i].m_fd_write_to_server, buf, MAX_MSG) > 0) {
+            usleep(600);
+            printf("Server output: %s\n", buf);
+            memset(buf, 0, sizeof(buf)); // clear buffer
+          }
+          //printf("After reading\n");
 
+          /*
           printf("UserPid: %d\n", user_list[i].m_pid);
           printf("UserSlot: %d\n", user_list[i].m_status);
           printf("UserID: %s\n", user_list[i].m_user_id);
+          */
         }
       }
 
+      // nonblocking read from stdin for admin side
+      while(read(0, server_buf, MAX_MSG) > 0) {
+        for(int i = 0; i < MAX_USER; i++) {
+          if (user_list[i].m_status == SLOT_FULL) {
+            write(user_list[i].m_fd_write_to_child, server_buf, MAX_MSG);
+          }
+        }
+        memset(server_buf, 0, sizeof(server_buf));
+      }
+
     }
-    list_users(-1,user_list);
     usleep(500000);
     // Check max user and same user id
 

@@ -25,17 +25,26 @@ void main(int argc, char *argv[]) {
   }
 /* -------------- YOUR CODE STARTS HERE -----------------------------------*/
   char stuff[MAX_MSG];
+  char feedback[MAX_MSG];
 
   close(pipe_user_writing_to_server[0]); //close reading end of this pipe
   while(1)
   {
-    print_prompt(argv[1]);
+    // non blocking read to see what server sends
+    while (read(pipe_user_reading_from_server[0], feedback, MAX_MSG) > 0) {
+      usleep(600);
+      printf("Feedback: %s\n", feedback);
+      memset(feedback, 0, sizeof(feedback)); // clear buffer
+      print_prompt(argv[1]);
+    }
 
-    while(read(0, stuff, MAX_MSG) == -1){ usleep(50);} // non blocking read from stdin
-    write(pipe_user_writing_to_server[1], stuff, strlen(stuff));
-    memset(stuff, 0, sizeof(stuff)); //clear buffer
+    while(read(0, stuff, MAX_MSG) > 0){
+      usleep(600);
+      write(pipe_user_writing_to_server[1], stuff, strlen(stuff));
+      memset(stuff, 0, sizeof(stuff)); //clear buffer
+      print_prompt(argv[1]);
+    } // non blocking read from stdin
 
-    printf("successfully wrote\n");
     usleep(40000);
   }
 
