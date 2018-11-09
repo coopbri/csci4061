@@ -7,6 +7,8 @@
 #include <string.h>
 #include <sys/wait.h>
 
+char *user_commands[] = {"\\list", "\\kick", "\\p2p", "\\seg", "\\exit"};
+
 /* -----------Functions that implement server functionality-------------------------*/
 
 /*
@@ -122,6 +124,13 @@ void kick_user(int idx, USER *user_list) {
 int broadcast_msg(USER *user_list, char *buf, char *sender) {
   // iterate over the user_list and if a slot is full, and the user is not the
   // sender itself, then send the message to that user return zero on success
+  for(int i = 0; i < MAX_USER; i++) {
+    // if it is the user then it doesn't send the message to them
+    if (user_list[i].m_user_id != sender && user_list[i].m_status == SLOT_FULL) {
+      write(user_list[i].m_fd_write_to_child, buf, MAX_MSG);
+    }
+  }
+  memset(buf, 0, sizeof(buf)); // clear buffer
   return 0;
 }
 
@@ -198,6 +207,28 @@ int extract_text(char *buf, char *text) {
  */
 void send_p2p_msg(int idx, USER *user_list, char *buf) {
 
+  char target_message[MAX_MSG];
+  char target_user[MAX_USER_ID];
+  char final_message[MAX_MSG];
+  int ret;
+
+  extract_name(buf, target_user);
+  ret = find_user_index(user_list, target_user);
+  if (ret == -1) {
+    write(user_list[idx].m_fd_write_to_child, "User not found", 15);
+  } else {
+    // Message format <user who sent message>: <message they sent>
+    /****** BEGIN ********/
+    extract_text(buf, target_message);
+    strcpy(target_user, user_list[idx].m_user_id);
+    strcat(target_user, ": ");
+    strcpy(final_message, target_user);
+    strcat(final_message, target_message);
+    /****** END **********/
+    write(user_list[ret].m_fd_write_to_child, final_message, MAX_MSG);
+    memset(target_message, 0, MAX_MSG);
+  }
+
   // get the target user by name using extract_name() function
   // find the user id using find_user_index()
   // if user not found, write back to the original user "User not found", using
@@ -222,10 +253,6 @@ void init_user_list(USER *user_list) {
   for (i = 0; i < MAX_USER; i++) {
     user_list[i].m_pid = -1;
     memset(user_list[i].m_user_id, '\0', MAX_USER_ID);
-    /*
-    user_list[i].m_fd_to_user = -1;
-    user_list[i].m_fd_to_server = -1;
-    */
     user_list[i].m_fd_write_to_server = -1;
     user_list[i].m_fd_read_from_child = -1;
     user_list[i].m_fd_write_to_child = -1;
@@ -247,6 +274,7 @@ int main(int argc, char *argv[]) {
   char buf[MAX_MSG];
   char server_buf[MAX_MSG]; // for server buffer
   char child_buf[MAX_MSG]; // for child buffer
+  char final_message[MAX_MSG]; // used for broadcast
   fcntl(0, F_SETFL, fcntl(0, F_GETFL) | O_NONBLOCK);
   print_prompt("admin");
 
@@ -265,7 +293,7 @@ int main(int argc, char *argv[]) {
       int empty_idx;
       int new_user_idx;
       int status;
-      printf("\nConnection made\nUserID: %s\n", user_id);
+      printf("\nConnection made UserID: %s\n", user_id);
       // this is to initialize the pipes for server
       pipe(pipe_SERVER_reading_from_child);
       pipe(pipe_SERVER_writing_to_child);
@@ -286,6 +314,7 @@ int main(int argc, char *argv[]) {
 
         pid_t pidID = fork();
 
+        // this is just to make it easier to understand which is which
         int fd_child_write_to_server = pipe_SERVER_reading_from_child[0];
         int fd_server_read_from_child = pipe_SERVER_reading_from_child[1];
         int fd_write_to_child = pipe_SERVER_writing_to_child[1];
@@ -298,10 +327,16 @@ int main(int argc, char *argv[]) {
 
           // continuous check if there is something in pipes to read or write
           while(1){
+            // close used pipes in child process
+            close(pipe_child_reading_from_user[1]);
+            close(pipe_SERVER_reading_from_child[0]);
+            close(pipe_SERVER_writing_to_child[1]);
+            close(pipe_child_writing_to_user[0]);
+
             // while loop for input nonblock
             while (read(pipe_child_reading_from_user[0], buf, MAX_MSG) > 0) {
               usleep(600);
-              write(fd_server_read_from_child, buf, strlen(buf));
+              write(pipe_SERVER_reading_from_child[1], buf, strlen(buf));
               memset(buf, 0, sizeof(buf)); // clear buffer
             }
             // while loop for reading server feedback
@@ -315,39 +350,73 @@ int main(int argc, char *argv[]) {
 
           // exit status will be removed
           exit(status);
-        } else {  // parent process
+        } else {
+          // parent process
           // adds users and their corresponding pipes
           add_user(empty_idx, user_list, pidID, user_id,fd_write_to_child,
             fd_child_write_to_server, fd_server_read_from_child, fd_read_from_server);
-
+          print_prompt("admin");
         }
       }
-
     } else {
       /*this is to parse through every user and read from their input then do multiple
       else statements to check what commands the users send */
-      
+
       for(int i = 0; i < MAX_USER; i++) {
         if (user_list[i].m_status == SLOT_FULL) {
           while (read(user_list[i].m_fd_write_to_server, buf, MAX_MSG) > 0) {
-            usleep(600);
-            printf("Server output: %s\n", buf);
-            memset(buf, 0, sizeof(buf)); // clear buffer
-          }
 
+            if (start_with(user_commands[0], buf) == 0) {
+              list_users(find_user_index(user_list, user_list[i].m_user_id), user_list);
+              printf("User request to see online partcipants");
+
+              /* insert more admin commands here */
+               // clear buffer
+              memset(buf, 0, sizeof(buf));
+            } else if (start_with(user_commands[2], buf) == 0){
+                // private messaging from user to user
+                send_p2p_msg(i, user_list, buf);
+                printf("Private message was sent");
+                // clear buffer
+                memset(buf, 0, sizeof(buf));
+            } else {
+              // this adds the admin: <message> attachment to the broadcasted message
+              strcpy(final_message, user_list[i].m_user_id);
+              strcat(final_message, ": ");
+              strcat(final_message, buf);
+              broadcast_msg(user_list, final_message, user_list[i].m_user_id);
+              printf("User broadcasted message: %s", buf);
+              // clear buffers
+              memset(buf, 0, sizeof(buf));
+              memset(final_message, 0, sizeof(final_message));
+            }
+            printf("\n");
+            print_prompt("admin");
+          }
         }
       }
 
       // nonblocking read from stdin for admin side
       while(read(0, server_buf, MAX_MSG) > 0) {
-        for(int i = 0; i < MAX_USER; i++) {
-          if (user_list[i].m_status == SLOT_FULL) {
-            write(user_list[i].m_fd_write_to_child, server_buf, MAX_MSG);
-          }
-        }
-        memset(server_buf, 0, sizeof(server_buf));
-      }
 
+        if (strlen(server_buf) > 0) {
+
+          if (start_with(user_commands[0], server_buf) == 0) {
+            list_users(-1, user_list);
+            /* insert more admin commands here */
+            memset(server_buf, 0, sizeof(server_buf)); // clear buffer
+          } else {
+            // this adds the admin: <message> attachment to the broadcasted message
+            strcpy(final_message, "admin: ");
+            strcat(final_message, server_buf);
+            broadcast_msg(user_list, final_message, "admin");
+            // clear buffers
+            memset(server_buf, 0, sizeof(server_buf));
+            memset(final_message, 0, sizeof(final_message));
+          }
+          print_prompt("admin");
+        }
+      }
     }
     usleep(500000);
     // Check max user and same user id

@@ -27,23 +27,36 @@ void main(int argc, char *argv[]) {
   char stuff[MAX_MSG];
   char feedback[MAX_MSG];
 
-  close(pipe_user_writing_to_server[0]); //close reading end of this pipe
+  close(pipe_user_writing_to_server[0]); // close reading end of this pipe
+  close(pipe_user_reading_from_server[1]); // close writing end of this pipe
   print_prompt(argv[1]);
+
+  // make both stdin and the reading from server nonblocking
+  fcntl(pipe_user_reading_from_server[0], F_SETFL, fcntl(pipe_user_reading_from_server[0], F_GETFL) | O_NONBLOCK);
+  fcntl(0, F_SETFL, fcntl(0, F_GETFL) | O_NONBLOCK);
   while(1)
   {
     // non blocking read to see what server sends
+
     while (read(pipe_user_reading_from_server[0], feedback, MAX_MSG) > 0) {
       usleep(600);
-      printf("Feedback: %s\n", feedback);
+      printf("\n%s\n", feedback);
       memset(feedback, 0, sizeof(feedback)); // clear buffer
       print_prompt(argv[1]);
     }
 
     while(read(0, stuff, MAX_MSG) > 0){
-      usleep(600);
-      write(pipe_user_writing_to_server[1], stuff, strlen(stuff));
-      memset(stuff, 0, sizeof(stuff)); //clear buffer
-      print_prompt(argv[1]);
+      // if = user writes a sentence
+      // else = user writes a blank sentence
+      if (strlen(stuff) > 1) {
+        write(pipe_user_writing_to_server[1], stuff, strlen(stuff));
+        memset(stuff, 0, sizeof(stuff)); //clear buffer
+        print_prompt(argv[1]);
+      } else {
+        printf("Write something meaningful dumbo\n");
+        memset(stuff, 0, sizeof(stuff));
+        print_prompt(argv[1]);
+      }
     } // non blocking read from stdin
 
     usleep(40000);
