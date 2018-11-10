@@ -97,6 +97,18 @@ int add_user(int idx, USER *user_list, int pid, char *user_id,
 void kill_user(int idx, USER *user_list) {
   // kill a user (specified by idx) by using the systemcall kill()
   // then call waitpid on the user
+  char kick_message[MAX_MSG] = "You have been kicked";
+  write(user_list[idx].m_fd_write_to_child, kick_message, MAX_MSG);
+  usleep(500000);
+  int ret;
+  int status;
+  ret = kill(user_list[idx].m_pid, SIGKILL);
+  if (ret == 0) {
+    waitpid(user_list[idx].m_pid, &status, WNOHANG);
+  } else {
+    perror("Problem killing child");
+  }
+
 }
 
 /*
@@ -104,18 +116,34 @@ void kill_user(int idx, USER *user_list) {
  */
 void cleanup_user(int idx, USER *user_list) {
   // m_pid should be set back to -1
+  user_list[idx].m_pid = -1;
+
   // m_user_id should be set to zero, using memset()
+  memset(user_list[idx].m_user_id, 0, MAX_USER_ID);
+
   // close all the fd
+  close(user_list[idx].m_fd_write_to_server);
+  close(user_list[idx].m_fd_read_from_server);
+  close(user_list[idx].m_fd_write_to_child);
+  close(user_list[idx].m_fd_read_from_server);
+
   // set the value of all fd back to -1
+  user_list[idx].m_fd_write_to_server = -1;
+  user_list[idx].m_fd_read_from_server = -1;
+  user_list[idx].m_fd_write_to_child = -1;
+  user_list[idx].m_fd_read_from_server = -1;
+
   // set the status back to empty
+  user_list[idx].m_status = SLOT_EMPTY;
 }
 
 /*
  * Kills the user and performs cleanup
  */
 void kick_user(int idx, USER *user_list) {
-  // should kill_user()
-  // then perform cleanup_user()
+
+  kill_user(idx, user_list);
+  cleanup_user(idx, user_list);
 }
 
 /*
@@ -209,7 +237,7 @@ void send_p2p_msg(int idx, USER *user_list, char *buf) {
 
   char target_message[MAX_MSG];
   char target_user[MAX_USER_ID];
-  char final_message[MAX_MSG];
+  char temp_buf[MAX_MSG];
   int ret;
 
   extract_name(buf, target_user);
@@ -222,10 +250,10 @@ void send_p2p_msg(int idx, USER *user_list, char *buf) {
     extract_text(buf, target_message);
     strcpy(target_user, user_list[idx].m_user_id);
     strcat(target_user, ": ");
-    strcpy(final_message, target_user);
-    strcat(final_message, target_message);
+    strcpy(temp_buf, target_user);
+    strcat(temp_buf, target_message);
     /****** END **********/
-    write(user_list[ret].m_fd_write_to_child, final_message, MAX_MSG);
+    write(user_list[ret].m_fd_write_to_child, temp_buf, MAX_MSG);
     memset(target_message, 0, MAX_MSG);
   }
 
@@ -274,7 +302,8 @@ int main(int argc, char *argv[]) {
   char buf[MAX_MSG];
   char server_buf[MAX_MSG]; // for server buffer
   char child_buf[MAX_MSG]; // for child buffer
-  char final_message[MAX_MSG]; // used for broadcast
+  char temp_buf[MAX_MSG]; // used for broadcast
+  char *position; // pointer for eliminating newline
   fcntl(0, F_SETFL, fcntl(0, F_GETFL) | O_NONBLOCK);
   print_prompt("admin");
 
@@ -359,6 +388,8 @@ int main(int argc, char *argv[]) {
         }
       }
     } else {
+
+
       /*this is to parse through every user and read from their input then do multiple
       else statements to check what commands the users send */
 
@@ -381,18 +412,19 @@ int main(int argc, char *argv[]) {
                 memset(buf, 0, sizeof(buf));
             } else {
               // this adds the admin: <message> attachment to the broadcasted message
-              strcpy(final_message, user_list[i].m_user_id);
-              strcat(final_message, ": ");
-              strcat(final_message, buf);
-              broadcast_msg(user_list, final_message, user_list[i].m_user_id);
+              strcpy(temp_buf, user_list[i].m_user_id);
+              strcat(temp_buf, ": ");
+              strcat(temp_buf, buf);
+              broadcast_msg(user_list, temp_buf, user_list[i].m_user_id);
               printf("User broadcasted message: %s", buf);
               // clear buffers
               memset(buf, 0, sizeof(buf));
-              memset(final_message, 0, sizeof(final_message));
+              memset(temp_buf, 0, sizeof(temp_buf));
             }
             printf("\n");
             print_prompt("admin");
           }
+          usleep(50);
         }
       }
 
@@ -400,25 +432,40 @@ int main(int argc, char *argv[]) {
       while(read(0, server_buf, MAX_MSG) > 0) {
 
         if (strlen(server_buf) > 0) {
-
+          if ((position=strchr(server_buf,'\n')) != NULL) {
+            *position = '\0';
+          } else {
+            perror("Error at reading:");
+          }
+          // list users
           if (start_with(user_commands[0], server_buf) == 0) {
             list_users(-1, user_list);
-            /* insert more admin commands here */
-            memset(server_buf, 0, sizeof(server_buf)); // clear buffer
+            // clear buffer
+            memset(server_buf, 0, sizeof(server_buf));
+
+            //kick user
+          } else if (start_with(user_commands[1], server_buf) == 0) {
+            extract_name(server_buf, temp_buf);
+            kick_user(find_user_index(user_list, temp_buf), user_list);
+            //clear buffers
+            memset(server_buf, 0, sizeof(server_buf));
+            memset(temp_buf, 0, sizeof(temp_buf));
+
+            //broadcast to users
           } else {
             // this adds the admin: <message> attachment to the broadcasted message
-            strcpy(final_message, "admin: ");
-            strcat(final_message, server_buf);
-            broadcast_msg(user_list, final_message, "admin");
+            strcpy(temp_buf, "Notice: ");
+            strcat(temp_buf, server_buf);
+            broadcast_msg(user_list, temp_buf, "admin");
             // clear buffers
             memset(server_buf, 0, sizeof(server_buf));
-            memset(final_message, 0, sizeof(final_message));
+            memset(temp_buf, 0, sizeof(temp_buf));
           }
           print_prompt("admin");
         }
       }
     }
-    usleep(500000);
+    usleep(50);
     // Check max user and same user id
 
     // Child process: poli users and SERVER

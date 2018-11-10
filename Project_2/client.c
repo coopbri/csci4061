@@ -26,6 +26,7 @@ void main(int argc, char *argv[]) {
 /* -------------- YOUR CODE STARTS HERE -----------------------------------*/
   char stuff[MAX_MSG];
   char feedback[MAX_MSG];
+  char *position;
 
   close(pipe_user_writing_to_server[0]); // close reading end of this pipe
   close(pipe_user_reading_from_server[1]); // close writing end of this pipe
@@ -39,13 +40,17 @@ void main(int argc, char *argv[]) {
     // non blocking read to see what server sends
 
     while (read(pipe_user_reading_from_server[0], feedback, MAX_MSG) > 0) {
-      usleep(600);
       printf("\n%s\n", feedback);
       memset(feedback, 0, sizeof(feedback)); // clear buffer
       print_prompt(argv[1]);
     }
 
     while(read(0, stuff, MAX_MSG) > 0){
+      if ((position=strchr(stuff,'\n')) != NULL) {
+        *position = '\0';
+      } else {
+        perror("Error at reading:");
+      }
       // if = user writes a sentence
       // else = user writes a blank sentence
       if (strlen(stuff) > 1) {
@@ -59,7 +64,7 @@ void main(int argc, char *argv[]) {
       }
     } // non blocking read from stdin
 
-    usleep(40000);
+    usleep(50);
   }
 
   // poll pipe retrieved and print it to sdiout
