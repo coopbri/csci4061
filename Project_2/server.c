@@ -168,6 +168,11 @@ int broadcast_msg(USER *user_list, char *buf, char *sender) {
 void cleanup_users(USER *user_list) {
   // go over the user list and check for any empty slots
   // call cleanup user for each of those users.
+  for (int i = 0; i < MAX_USER; i++) {
+    if (user_list[i].m_status == SLOT_EMPTY) {
+      cleanup_user(i, user_list);
+    }
+  }
 }
 
 /*
@@ -266,7 +271,16 @@ void send_p2p_msg(int idx, USER *user_list, char *buf) {
 
 // takes in the filename of the file being executed, and prints an error message
 // stating the commands and their usage
-void show_error_message(char *filename) {}
+
+void show_error_message(char *filename) {
+  /*
+  sprintf("%s is not a valid command.\nValid commands are:\n"
+  "\\list - List online users\n"
+  "\\p2p <user_name> <message> - sends a private message to user\n"
+  "\\exit - Disconnect from server"
+  "<text> Will be broadcasted to users connected to the server\n", filename);
+*/
+}
 
 /*
  * Populates the user list initially
@@ -304,6 +318,7 @@ int main(int argc, char *argv[]) {
   char child_buf[MAX_MSG]; // for child buffer
   char temp_buf[MAX_MSG]; // used for broadcast
   char *position; // pointer for eliminating newline
+  int user_count = 0; // keeps track of how many users there are
   fcntl(0, F_SETFL, fcntl(0, F_GETFL) | O_NONBLOCK);
   print_prompt("admin");
 
@@ -322,7 +337,7 @@ int main(int argc, char *argv[]) {
       int empty_idx;
       int new_user_idx;
       int status;
-      printf("\nConnection made UserID: %s\n", user_id);
+
       // this is to initialize the pipes for server
       pipe(pipe_SERVER_reading_from_child);
       pipe(pipe_SERVER_writing_to_child);
@@ -384,6 +399,8 @@ int main(int argc, char *argv[]) {
           // adds users and their corresponding pipes
           add_user(empty_idx, user_list, pidID, user_id,fd_write_to_child,
             fd_child_write_to_server, fd_server_read_from_child, fd_read_from_server);
+          user_count++;
+          printf("\nUser connected: %s Slots in use: %d\n", user_id, user_count);
           print_prompt("admin");
         }
       }
@@ -409,6 +426,12 @@ int main(int argc, char *argv[]) {
                 send_p2p_msg(i, user_list, buf);
                 printf("Private message was sent");
                 // clear buffer
+                memset(buf, 0, sizeof(buf));
+            } else if (start_with(user_commands[4], buf) == 0){
+                // kicks all users in server
+                kick_user(i, user_list);
+
+                //clear buffer
                 memset(buf, 0, sizeof(buf));
             } else {
               // this adds the admin: <message> attachment to the broadcasted message
@@ -447,9 +470,23 @@ int main(int argc, char *argv[]) {
           } else if (start_with(user_commands[1], server_buf) == 0) {
             extract_name(server_buf, temp_buf);
             kick_user(find_user_index(user_list, temp_buf), user_list);
+            user_count--;
             //clear buffers
             memset(server_buf, 0, sizeof(server_buf));
             memset(temp_buf, 0, sizeof(temp_buf));
+
+            //exit from admin side
+          }  else if (start_with(user_commands[4], server_buf) == 0) {
+            for(int idx = 0; idx < MAX_USER; idx++) {
+              // if it is the user then it doesn't send the message to them
+              if (user_list[idx].m_status == SLOT_FULL) {
+                kick_user(idx, user_list);
+              }
+            }
+            cleanup_users(user_list);
+            user_count = 0;
+            //clear buffers
+            memset(server_buf, 0, sizeof(server_buf));
 
             //broadcast to users
           } else {
