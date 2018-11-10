@@ -1,4 +1,8 @@
 /* CSCI4061 F2018 Assignment 2
+* section: 1
+* date: 11/10/18
+* name: Jared Erlien, Brian Cooper, Chase Rogness
+* id: coope824, rogne066, erlie003 */
 
 1. Purpose of program: Represent basic components of a multi-user chat system. Utilizing a server as a medium between separate clients with unique ID's.
 2. Who did what:
@@ -32,4 +36,4 @@
     - Server processes and user processes are stopped manually while disconnects from server are handled.
 7. Error handling strategies:
     Some error handling strategies are given that a function returned both a successful int or unsuccessful it allowed us to produce an error message for said input.
-    Also
+    Also doing checks if input > 1 so its not just blanks and other if else statements to check if its legitimate input.
