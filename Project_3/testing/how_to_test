@@ -1,0 +1,29 @@
+RUNNING THE WEB SERVER
+============================================================
+Extract "testing.tar" and use it as your webserver root
+directory. Run your webserver using the following command
+
+./web_server <port> <path_to_testing>/testing <num_dispatch> <num_worker> <dynamic_flag> <queue_len> <cache_entries>
+
+**** Pick a random number other than 9000 from (1024 to 65536) to avoid collisions with other groups ****
+For example, to run the web server at port 9000, with root directory "/home/student/joe/testing" with 100 dispatch and worker threads,
+queue length 100 run the following command
+
+./web_server 9000 /home/student/joe/testing 100 100 0 100 100
+
+You should now (using another terminal) be able to query a single file, such as the following:
+
+wget http://127.0.0.1:9000/image/jpg/29.jpg
+
+If you have a file containing all the URLs you want, you can open a terminal and issue the following command,
+
+wget -i <path-to-urls>/urls -O results
+
+In our case we should run
+wget -i /home/student/joe/testing/urls -O myres
+
+The above command will ask wget to fetch all the URLs listed
+on the file named "urls" that you downloaded from the assignment page.
+
+To run the xargs test: (Refer project description for more details)
+cat <path _to_urls_file> | xargs -n 1 -P 8 wget
