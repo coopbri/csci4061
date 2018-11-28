@@ -144,6 +144,7 @@ void * worker(void *arg) {
 
 int main(int argc, char **argv) {
 
+  // -----------------------------ARGUMENT SETUP AND ERROR CHECKING----------------------------- //
   // Error check on number of arguments
   // Decide to check if caching is enabled [argc == 8 -> Caching enabled]
   if(argc != 7 && argc != 8) {
@@ -151,7 +152,6 @@ int main(int argc, char **argv) {
     return -1;
   }
 
-  // Get the input args and error check on them
   port = atoi(argv[1]);
   if (port < 1025 || port > 65535) { // not sure if this check is needed
     printf("Port out of range, must be between 1025 and 65535.\n");
@@ -159,22 +159,24 @@ int main(int argc, char **argv) {
   }
 
   path = argv[2]; // use strncpy?
-  // error check on path?
+  // error check on path? maybe make a max path limit definition at the top
 
   num_dispatchers = atoi(argv[3]);
+  // Verify proper number of dispatch threads requested
   if (num_dispatchers <= 0 || num_dispatchers > MAX_THREADS) {
     printf("Invalid number of dispatcher threads. Please enter a number between 0 and %d.\n", MAX_THREADS);
     return -1;
   }
 
   num_workers = atoi(argv[4]);
+  // Verify proper number of worker threads requested
   if (num_workers <= 0 || num_workers > MAX_THREADS) {
     printf("Invalid number of worker threads. Please enter a number between 0 and %d.\n", MAX_THREADS);
     return -1;
   }
 
-  // Make sure the total number of threads is <= 100
-  if ((num_dispatchers + num_workers) > MAX_THREADS) {
+  // Make sure the total number of threads is <= maximum
+  if ((num_dispatchers + num_workers) > MAX_THREADS) { // do we have to do this? not sure if max_threads means total or separately
     printf("Number of threads exceeds maximum (%d).\n", MAX_THREADS);
     return -1;
   }
@@ -183,7 +185,7 @@ int main(int argc, char **argv) {
   // error check on dynamic_flag?
 
   queue_length = atoi(argv[6]);
-  // Make sure the given queue size is <= 100
+  // Make sure the given queue size is <= maximum
   if (queue_length > MAX_QUEUE_LEN) {
     printf("Queue length exceeds maximum (%d).\n", MAX_QUEUE_LEN);
     return -1;
@@ -192,7 +194,7 @@ int main(int argc, char **argv) {
   // if caching is enabled, generate cache
   if (argc == 8) {
     cache_size = atoi(argv[7]);
-    // Make sure the given cache size is <= 100
+    // Make sure the given cache size is <= maximum
     if (cache_size > MAX_CE) {
       printf("Cache size exceeds maximum (%d).\n", MAX_CE);
       return -1;
@@ -200,13 +202,7 @@ int main(int argc, char **argv) {
   } else {
     cache_size = 0;
   }
-
-
-
-  // TODO error check on dynamic flag?
-
-
-
+  // --------------------------END OF ARGUMENT SETUP AND ERROR CHECKING-------------------------- //
 
 
   // Initialize server on port from command line
@@ -218,17 +214,33 @@ int main(int argc, char **argv) {
   // Start the server and initialize cache
 
   // Create dispatcher and worker threads
+  // Initialize arrays for both thread types
+  pthread_t dispatchers[MAX_THREADS];
+  pthread_t workers[MAX_THREADS];
+
   for (int i = 0; i < num_dispatchers; i++) {
-    if (pthread_create());
+    if (pthread_create(&(dispatchers[i]), NULL, dispatch, NULL) != 0) {
+      printf("Error creating dispatcher thread.\n");
+      exit(-1);
+    }
   }
 
   for (int i = 0; i < num_workers; i++) {
+    if (pthread_create(&(workers[i]), NULL, worker, (void *) &i) != 0) {
+      printf("Error creating worker thread.\n");
+      exit(-1);
+    }
+  }
 
+  for (int i = 0; i < num_dispatchers; i++) {
+    // we can join or detach, I believe
+    if (pthread_join(dispatchers[i], NULL) != 0) {
+      printf("Error joining dispatcher thread.");
+    }
   }
 
   // Clean up
   // probably need to free threads, queue, cache
   // and destroy locks
-
   return 0;
 }
