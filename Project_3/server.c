@@ -1,3 +1,4 @@
+// includes:
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -12,14 +13,15 @@
 #include "util.h"
 #include <stdbool.h>
 
+// defines:
 #define MAX_THREADS 100
-#define MAX_queue_len 100
+#define MAX_QUEUE_LEN 100
 #define MAX_CE 100
 #define INVALID -1
 #define BUFF_SIZE 1024
 
 /*
-  THE CODE STRUCTURE GIVEN BELOW IS JUST A SUGESSTION. FEEL FREE TO MODIFY AS NEEDED
+  THE CODE STRUCTURE GIVEN BELOW IS JUST A SUGGESTION. FEEL FREE TO MODIFY AS NEEDED
 */
 
 // structs:
@@ -133,23 +135,66 @@ void * worker(void *arg) {
 
 int main(int argc, char **argv) {
 
+  int port, num_dispatchers, num_workers, dynamic_flag queue_length, cache_size;
+  char path[50]; // should probably change
+
   // Error check on number of arguments
-  // Decided to check if caching is enabled [argc == 8 -> Caching enabled]
-  if(argc != 7 && argc != 8){
-    printf("usage: %s port path num_dispatcher num_workers dynamic_flag queue_length cache_size\n", argv[0]);
+  // Decide to check if caching is enabled [argc == 8 -> Caching enabled]
+  if(argc != 7 && argc != 8) {
+    printf("usage: %s port path num_dispatchers num_workers dynamic_flag queue_length cache_size\n", argv[0]);
     return -1;
   }
 
   // Get the input args
+  port = argv[1];
+  path = argv[2];
+  num_dispatchers = argv[3];
+  num_workers = argv[4];
+  dynamic_flag = argv[5];
+  queue_length = argv[6];
+  cache_size = argv[7];
 
   // Perform error checks on the input arguments
+  if (port < 1025 || port > 65535) { // not sure if this check is needed
+    printf("Port out of range, must be between 1025 and 65535.");
+    return -1;
+  }
+
+  // TODO error check on path?
+
+  // Make sure the total number of threads is <= 100
+  if ((num_dispatchers + num_workers) > MAX_THREADS) {
+    printf("Number of threads exceeds maximum (100).");
+    return -1;
+  }
+
+  // TODO error check on dynamic flag?
+
+  // Make sure the given queue size is <= 100
+  if (queue_length > MAX_QUEUE_LEN) {
+    printf("Queue length exceeds maximum (100).");
+    return -1;
+  }
+
+  // Make sure the given cache size is <= 100
+  if (cache_size > MAX_CE) {
+    printf("Cache size exceeds maximum (100).");
+    return -1;
+  }
+
+  // Initialize server on port from command line
+  init(port);
 
   // Change the current working directory to server root directory
+  chdir(path);
 
   // Start the server and initialize cache
 
   // Create dispatcher and worker threads
 
   // Clean up
+  // probably need to free threads, queue, cache
+  // and destroy locks
+
   return 0;
 }
