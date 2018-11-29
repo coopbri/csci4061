@@ -21,14 +21,9 @@
 #define INVALID -1
 #define BUFF_SIZE 1024
 
-// global declarations:
-int port;
-char *path;
-int num_dispatchers;
-int num_workers;
-int dynamic_flag;
-int queue_length;
-int cache_size;
+pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
+pthread_cond_t CV = PTHREAD_COND_INITIALIZER;
+int master_slot = 0;
 
 /*
   THE CODE STRUCTURE GIVEN BELOW IS JUST A SUGGESTION. FEEL FREE TO MODIFY AS NEEDED
@@ -45,6 +40,8 @@ typedef struct cache_entry {
     char *request;
     char *content;
 } cache_entry_t;
+
+request_t queue_buffer[MAX_QUEUE_LEN];
 
 /* ************************ Dynamic Pool Code ***********************************/
 // Extra Credit: This function implements the policy to change the worker thread pool dynamically
@@ -88,7 +85,7 @@ void initCache(){
 // Function to open and read the file from the disk into the memory
 // Add necessary arguments as needed
 // TODO: Brian
-int readFromDisk(/*necessary arguments*/) {
+int readFromDisk(char * abs_path) {
   // Open and read the contents of file given the request
 }
 
@@ -114,16 +111,39 @@ int getCurrentTimeInMills() {
 // Function to receive the request from the client and add to the queue
 // TODO: Chase
 void * dispatch(void *arg) {
+  int fd = 0;
+  char filebuf[1024];
+  request_t request;
+
   while (1) {
-
     // Accept client connection
-
+    if((fd = accept_connection()) <= 0) {
+      fd = 0;
+    }
     // Get request from the client
+    if(fd > 0 && (get_request(fd, filebuf) != 0)) {
+      printf("Failed!");
+    }
 
     // Add the request into the queue
+    if(pthread_mutex_lock(&lock) < 0) {
+      printf("Failed to lock queue mutex");
+    }
 
-   }
-   return NULL;
+    while(master_slot == MAX_QUEUE_LEN) {
+      pthread_cond_wait(&CV, &lock);
+    }
+
+    queue_buffer[master_slot].fd = fd;
+    queue_buffer[master_slot].request = filebuf;
+    master_slot++;
+
+    if(pthread_mutex_unlock(&lock) < 0) {
+      printf("Failed to unlock queue mutex");
+    }
+    pthread_cond_broadcast(&CV);
+  }
+  return NULL;
 }
 
 /**********************************************************************************/
@@ -131,14 +151,34 @@ void * dispatch(void *arg) {
 // Function to retrieve the request from the queue, process it and then return a result to the client
 // TODO: Chase
 void * worker(void *arg) {
+  int fd;
+  char *request;
+  char abs_path[1024];
 
-   while (1) {
+  while (1) {
 
     // Start recording time
 
     // Get the request from the queue
+    if(pthread_mutex_lock(&lock) < 0) {
+      printf("Failed to lock queue mutex");
+    }
 
+    while(master_slot == 0) {
+      pthread_cond_wait(&CV, &lock);
+    }
+
+    fd = queue_buffer[master_slot].fd;
+    request = queue_buffer[master_slot].request;
+    master_slot--;
+
+    if(pthread_mutex_unlock(&lock) < 0) {
+      printf("Failed to lock queue mutex");
+    }
+    pthread_cond_broadcast(&CV);
     // Get the data from the disk or the cache
+    printf("File descriptor, %d", fd);
+    // readFromDisk(abs_path);
 
     // Stop recording the time
 
@@ -152,6 +192,13 @@ void * worker(void *arg) {
 /**********************************************************************************/
 // TODO: Finish error checking and such. Chase & Brian
 int main(int argc, char **argv) {
+  int port;
+  char *path;
+  int num_dispatchers;
+  int num_workers;
+  int dynamic_flag;
+  int queue_length;
+  int cache_size;
 
   // -----------------------------ARGUMENT SETUP AND ERROR CHECKING----------------------------- //
   // Error check on number of arguments
@@ -162,36 +209,35 @@ int main(int argc, char **argv) {
   }
 
   port = atoi(argv[1]);
-  if (port < 1025 || port > 65535) { // not sure if this check is needed
+  // Verify port is in the proper range.
+  if (port < 1025 || port > 65535) {
     printf("Port out of range, must be between 1025 and 65535.\n");
     return -1;
   }
 
   path = argv[2];
-  // error check on path? maybe make a max path limit definition at the top
 
   num_dispatchers = atoi(argv[3]);
-  // Verify proper number of dispatch threads requested
+  // Verify proper number of dispatch threads.
   if (num_dispatchers <= 0 || num_dispatchers > MAX_THREADS) {
     printf("Invalid number of dispatcher threads. Please enter a number between 0 and %d.\n", MAX_THREADS);
     return -1;
   }
 
   num_workers = atoi(argv[4]);
-  // Verify proper number of worker threads requested
+  // Verify proper number of worker threads.
   if (num_workers <= 0 || num_workers > MAX_THREADS) {
     printf("Invalid number of worker threads. Please enter a number between 0 and %d.\n", MAX_THREADS);
     return -1;
   }
 
-  // Make sure the total number of threads is <= maximum
-  if ((num_dispatchers + num_workers) > MAX_THREADS) { // do we have to do this? not sure if max_threads means total or separately
-    printf("Number of threads exceeds maximum (%d).\n", MAX_THREADS);
+  // Part of extra credit.
+  dynamic_flag = atoi(argv[5]);
+  // Check to make sure the dynamic flag was set properly.
+  if (dynamic_flag > 1 || dynamic_flag < 0) {
+    printf("Dynamic flag must be 0 (off) or 1 (on).\n");
     return -1;
   }
-
-  dynamic_flag = atoi(argv[5]);
-  // error check on dynamic_flag?
 
   queue_length = atoi(argv[6]);
   // Make sure the given queue size is <= maximum
@@ -221,29 +267,26 @@ int main(int argc, char **argv) {
   chdir(path);
 
   // Start the server and initialize cache
-  cache_entry_t cache;
-  request_t queue;
-  // Create dispatcher and worker threads
+  // Create the queue array (bounded buffer)
   // Initialize arrays for both thread types
   pthread_t dispatchers[num_workers];
   pthread_t workers[num_workers];
 
   for (int i = 0; i < num_dispatchers; i++) {
-    if (pthread_create(&(dispatchers[i]), NULL, dispatch, NULL) != 0) {
+    if (pthread_create(&(dispatchers[i]), NULL, dispatch, (void *) queue_buffer) != 0) {
       printf("Error creating dispatcher thread.\n");
       exit(-1);
     }
   }
 
   for (int i = 0; i < num_workers; i++) {
-    if (pthread_create(&(workers[i]), NULL, worker, (void *) &i) != 0) {
+    if (pthread_create(&(workers[i]), NULL, worker, (void *) queue_buffer) != 0) {
       printf("Error creating worker thread.\n");
       exit(-1);
     }
   }
 
   for (int i = 0; i < num_dispatchers; i++) {
-    // we can join or detach, I believe
     if (pthread_join(dispatchers[i], NULL) != 0) {
       printf("Error joining dispatcher thread.");
     }
