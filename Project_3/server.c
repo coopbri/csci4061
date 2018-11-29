@@ -12,6 +12,7 @@
 #include <time.h>
 #include "util.h"
 #include <stdbool.h>
+#include <unistd.h>
 
 // defines:
 #define MAX_THREADS 100
@@ -22,7 +23,7 @@
 
 // global declarations:
 int port;
-char path[1024]; // change?
+char *path;
 int num_dispatchers;
 int num_workers;
 int dynamic_flag;
@@ -48,6 +49,7 @@ typedef struct cache_entry {
 /* ************************ Dynamic Pool Code ***********************************/
 // Extra Credit: This function implements the policy to change the worker thread pool dynamically
 // depending on the number of requests
+// TODO: If we have time for the extra credit
 void * dynamic_pool_size_update(void *arg) {
   while(1) {
     // Run at regular intervals
@@ -59,28 +61,33 @@ void * dynamic_pool_size_update(void *arg) {
 /* ************************************ Cache Code ********************************/
 
 // Function to check whether the given request is present in cache
+// TODO: Jared
 int getCacheIndex(char *request){
   /// return the index if the request is present in the cache
 }
 
 // Function to add the request and its file content into the cache
+// TODO: Jared
 void addIntoCache(char *mybuf, char *memory , int memory_size){
   // It should add the request at an index according to the cache replacement policy
   // Make sure to allocate/free memeory when adding or replacing cache entries
 }
 
 // clear the memory allocated to the cache
+// TODO: Jared
 void deleteCache(){
   // De-allocate/free the cache memory
 }
 
 // Function to initialize the cache
+// TODO: Jared
 void initCache(){
   // Allocating memory and initializing the cache array
 }
 
 // Function to open and read the file from the disk into the memory
 // Add necessary arguments as needed
+// TODO: Brian
 int readFromDisk(/*necessary arguments*/) {
   // Open and read the contents of file given the request
 }
@@ -89,6 +96,7 @@ int readFromDisk(/*necessary arguments*/) {
 
 /* ************************************ Utilities ********************************/
 // Function to get the content type from the request
+// TODO: Brian
 char* getContentType(char * mybuf) {
   // Should return the content type based on the file type in the request
   // (See Section 5 in Project description for more details)
@@ -104,8 +112,8 @@ int getCurrentTimeInMills() {
 /**********************************************************************************/
 
 // Function to receive the request from the client and add to the queue
+// TODO: Chase
 void * dispatch(void *arg) {
-
   while (1) {
 
     // Accept client connection
@@ -121,6 +129,7 @@ void * dispatch(void *arg) {
 /**********************************************************************************/
 
 // Function to retrieve the request from the queue, process it and then return a result to the client
+// TODO: Chase
 void * worker(void *arg) {
 
    while (1) {
@@ -141,7 +150,7 @@ void * worker(void *arg) {
 }
 
 /**********************************************************************************/
-
+// TODO: Finish error checking and such. Chase & Brian
 int main(int argc, char **argv) {
 
   // -----------------------------ARGUMENT SETUP AND ERROR CHECKING----------------------------- //
@@ -158,7 +167,7 @@ int main(int argc, char **argv) {
     return -1;
   }
 
-  path = argv[2]; // use strncpy?
+  path = argv[2];
   // error check on path? maybe make a max path limit definition at the top
 
   num_dispatchers = atoi(argv[3]);
@@ -212,11 +221,12 @@ int main(int argc, char **argv) {
   chdir(path);
 
   // Start the server and initialize cache
-
+  cache_entry_t cache;
+  request_t queue;
   // Create dispatcher and worker threads
   // Initialize arrays for both thread types
-  pthread_t dispatchers[MAX_THREADS];
-  pthread_t workers[MAX_THREADS];
+  pthread_t dispatchers[num_workers];
+  pthread_t workers[num_workers];
 
   for (int i = 0; i < num_dispatchers; i++) {
     if (pthread_create(&(dispatchers[i]), NULL, dispatch, NULL) != 0) {
