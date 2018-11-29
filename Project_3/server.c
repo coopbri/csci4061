@@ -12,6 +12,7 @@
 #include <time.h>
 #include "util.h"
 #include <stdbool.h>
+#include <unistd.h>
 
 // defines:
 #define MAX_THREADS 100
@@ -22,7 +23,7 @@
 
 // global declarations:
 int port;
-char path[1024]; // change?
+char *path;
 int num_dispatchers;
 int num_workers;
 int dynamic_flag;
@@ -105,11 +106,10 @@ int getCurrentTimeInMills() {
 
 // Function to receive the request from the client and add to the queue
 void * dispatch(void *arg) {
-
   while (1) {
 
     // Accept client connection
-
+    
     // Get request from the client
 
     // Add the request into the queue
@@ -158,7 +158,7 @@ int main(int argc, char **argv) {
     return -1;
   }
 
-  path = argv[2]; // use strncpy?
+  path = argv[2];
   // error check on path? maybe make a max path limit definition at the top
 
   num_dispatchers = atoi(argv[3]);
@@ -212,11 +212,12 @@ int main(int argc, char **argv) {
   chdir(path);
 
   // Start the server and initialize cache
-
+  cache_entry_t cache;
+  request_t queue;
   // Create dispatcher and worker threads
   // Initialize arrays for both thread types
-  pthread_t dispatchers[MAX_THREADS];
-  pthread_t workers[MAX_THREADS];
+  pthread_t dispatchers[num_workers];
+  pthread_t workers[num_workers];
 
   for (int i = 0; i < num_dispatchers; i++) {
     if (pthread_create(&(dispatchers[i]), NULL, dispatch, NULL) != 0) {
