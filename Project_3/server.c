@@ -13,7 +13,7 @@
 #include <stdbool.h>
 
 #define MAX_THREADS 100
-#define MAX_queue_len 100
+#define MAX_QUEUE_LEN 100
 #define MAX_CE 100
 #define INVALID -1
 #define BUFF_SIZE 1024
@@ -115,13 +115,18 @@ void * worker(void *arg) {
    while (1) {
 
     // Start recording time
-
+    clock_t work_time;
+    work_time = clock();
     // Get the request from the queue
-
+    get_request(fd, )
     // Get the data from the disk or the cache
 
     // Stop recording the time
+    work_time = clock() - work_time;
+    double time_taken = ((double) work_time) / CLOCKS_PER_SEC; // in seconds
 
+    // test time time_taken
+    printf("Worker took %.3f seconds to execute \n", time_taken);
     // Log the request into the file and terminal
 
     // return the result
