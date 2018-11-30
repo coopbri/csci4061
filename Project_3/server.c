@@ -21,9 +21,10 @@
 #define INVALID -1
 #define BUFF_SIZE 1024
 
-pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
-pthread_cond_t CV = PTHREAD_COND_INITIALIZER;
-int master_slot = 0;
+pthread_mutex_t queue_lock = PTHREAD_MUTEX_INITIALIZER;
+pthread_cond_t queue_cv = PTHREAD_COND_INITIALIZER;
+int queue_fill_slot = 0;
+int queue_grab_slot = 0;
 
 /*
   THE CODE STRUCTURE GIVEN BELOW IS JUST A SUGGESTION. FEEL FREE TO MODIFY AS NEEDED
@@ -126,22 +127,23 @@ void * dispatch(void *arg) {
     }
 
     // Add the request into the queue
-    if(pthread_mutex_lock(&lock) < 0) {
+    if(pthread_mutex_lock(&queue_lock) < 0) {
       printf("Failed to lock queue mutex");
     }
 
-    while(master_slot == MAX_QUEUE_LEN) {
-      pthread_cond_wait(&CV, &lock);
+    while(fill_slot == MAX_QUEUE_LEN) {
+      pthread_cond_wait(&queue_cv, &queue_lock);
     }
 
-    queue_buffer[master_slot].fd = fd;
-    queue_buffer[master_slot].request = filebuf;
-    master_slot++;
+    queue_buffer[fill_slot].fd = fd;
+    queue_buffer[fill_slot].request = filebuf;
+    fill_slot++;
 
-    if(pthread_mutex_unlock(&lock) < 0) {
+
+    if(pthread_mutex_unlock(&queue_lock) < 0) {
       printf("Failed to unlock queue mutex");
     }
-    pthread_cond_broadcast(&CV);
+    pthread_cond_broadcast(&queue_cv);
   }
   return NULL;
 }
@@ -160,22 +162,22 @@ void * worker(void *arg) {
     // Start recording time
 
     // Get the request from the queue
-    if(pthread_mutex_lock(&lock) < 0) {
+    if(pthread_mutex_lock(&queue_lock) < 0) {
       printf("Failed to lock queue mutex");
     }
 
-    while(master_slot == 0) {
-      pthread_cond_wait(&CV, &lock);
+    while(fill_slot == 0) {
+      pthread_cond_wait(&queue_cv, &queue_lock);
     }
 
     fd = queue_buffer[master_slot].fd;
     request = queue_buffer[master_slot].request;
-    master_slot--;
+    fill_slot--;
 
-    if(pthread_mutex_unlock(&lock) < 0) {
+    if(pthread_mutex_unlock(&queue_lock) < 0) {
       printf("Failed to lock queue mutex");
     }
-    pthread_cond_broadcast(&CV);
+    pthread_cond_broadcast(&queue_cv);
     // Get the data from the disk or the cache
     printf("File descriptor, %d", fd);
     // readFromDisk(abs_path);
