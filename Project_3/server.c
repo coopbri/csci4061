@@ -88,6 +88,11 @@ void initCache(){
 // TODO: Brian
 int readFromDisk(char * abs_path) {
   // Open and read the contents of file given the request
+  // might need to add arguments
+  if (open(&abs_path, O_RDONLY) != 0) {
+    printf("Error accessing file.");
+    return -1;
+  }
 }
 
 /**********************************************************************************/
