@@ -89,7 +89,7 @@ void initCache(){
 int readFromDisk(char * abs_path) {
   // Open and read the contents of file given the request
   // might need to add arguments
-  if (open(&abs_path, O_RDONLY) != 0) {
+  if (open(abs_path, O_RDONLY) != 0) {
     printf("Error accessing file.");
     return -1;
   }
@@ -104,26 +104,26 @@ char* getContentType(char * mybuf) {
   // Should return the content type based on the file type in the request
   // (See Section 5 in Project description for more details)
 
-  int len_path = strlen(&mybuf);
-  string content_type;
+  int path_len = strlen(mybuf);
+  char content_type[12];
 
   // TODO: Get file from buffer
-  // TODO error check: return_error if problems accessing file
+  // TODO: error check; return_error if problems accessing file
+  // TODO: fix warning, function returns address of local variable
 
-  if (len_path > 5 && strcmp(&mybuf + len_path - 5, ".html") == 0) {
+  if (path_len > 5 && strcmp(mybuf + path_len - 5, ".html") == 0) {
     // file type is 'text/html'
-    content_type = "text/html";
-  } else if (len_path > 4 && strcmp(&mybuf + len_path - 4, ".jpg") == 0) {
+    strcpy(content_type, "text/html");
+  } else if (path_len > 4 && strcmp(mybuf + path_len - 4, ".jpg") == 0) {
     // file type is 'image/jpeg'
-    content_type = "image/jpeg";
-  } else if (len_path > 4 && strcmp(&mybuf + len_path - 4, ".gif") == 0) {
+    strcpy(content_type, "image/jpeg");
+  } else if (path_len > 4 && strcmp(mybuf + path_len - 4, ".gif") == 0) {
     // file type is 'image/gif'
-    content_type = "image_gif";
+    strcpy(content_type, "image_gif");
   } else {
     // file type is 'text/plain'
-    content_type = "text/plain";
+    strcpy(content_type, "text/plain");
   }
-
   return content_type;
 }
 
