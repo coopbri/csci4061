@@ -98,6 +98,28 @@ int readFromDisk(char * abs_path) {
 char* getContentType(char * mybuf) {
   // Should return the content type based on the file type in the request
   // (See Section 5 in Project description for more details)
+
+  int len_path = strlen(&mybuf);
+  string content_type;
+
+  // TODO: Get file from buffer
+  // TODO error check: return_error if problems accessing file
+
+  if (len_path > 5 && strcmp(&mybuf + len_path - 5, ".html") == 0) {
+    // file type is 'text/html'
+    content_type = "text/html";
+  } else if (len_path > 4 && strcmp(&mybuf + len_path - 4, ".jpg") == 0) {
+    // file type is 'image/jpeg'
+    content_type = "image/jpeg";
+  } else if (len_path > 4 && strcmp(&mybuf + len_path - 4, ".gif") == 0) {
+    // file type is 'image/gif'
+    content_type = "image_gif";
+  } else {
+    // file type is 'text/plain'
+    content_type = "text/plain";
+  }
+
+  return content_type;
 }
 
 // This function returns the current time in milliseconds
