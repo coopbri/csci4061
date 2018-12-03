@@ -118,8 +118,9 @@ void * dispatch(void *arg) {
 
   while (1) {
     // Accept client connection
-    if((fd = accept_connection()) <= 0) {
-      fd = 0;
+    fd = accept_connection();
+    if((fd = accept_connection()) < 0) {
+      exit(1);
     }
     // Get request from the client
     if(fd > 0 && (get_request(fd, filebuf) != 0)) {
@@ -131,14 +132,16 @@ void * dispatch(void *arg) {
       printf("Failed to lock queue mutex");
     }
 
-    while(fill_slot == MAX_QUEUE_LEN) {
+    while(queue_fill_slot == MAX_QUEUE_LEN) {
       pthread_cond_wait(&queue_cv, &queue_lock);
     }
 
-    queue_buffer[fill_slot].fd = fd;
-    queue_buffer[fill_slot].request = filebuf;
-    fill_slot++;
-
+    request.fd = fd;
+    request.request = filebuf;
+    queue_fill_slot++;
+    if(queue_fill_slot > MAX_QUEUE_LEN) {
+      queue_fill_slot = 0;
+    }
 
     if(pthread_mutex_unlock(&queue_lock) < 0) {
       printf("Failed to unlock queue mutex");
@@ -166,20 +169,24 @@ void * worker(void *arg) {
       printf("Failed to lock queue mutex");
     }
 
-    while(fill_slot == 0) {
+    while(queue_fill_slot == 0) {
       pthread_cond_wait(&queue_cv, &queue_lock);
     }
 
-    fd = queue_buffer[master_slot].fd;
-    request = queue_buffer[master_slot].request;
-    fill_slot--;
+    fd = queue_buffer[queue_grab_slot].fd;
+    request = queue_buffer[queue_grab_slot].request;
+    queue_grab_slot++;
+    if(queue_grab_slot > MAX_QUEUE_LEN) {
+      queue_grab_slot = 0;
+    }
 
     if(pthread_mutex_unlock(&queue_lock) < 0) {
       printf("Failed to lock queue mutex");
     }
     pthread_cond_broadcast(&queue_cv);
     // Get the data from the disk or the cache
-    printf("File descriptor, %d", fd);
+    printf("File descriptor, %d\n", fd);
+    exit(1);
     // readFromDisk(abs_path);
 
     // Stop recording the time
