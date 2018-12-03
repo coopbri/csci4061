@@ -121,9 +121,7 @@ void * dispatch(void *arg) {
         printf("Failed to lock queue mutex");
     }
 
-    while((fd = accept_connection()) < 0) {
-      usleep(20);
-    }
+    while((fd = accept_connection()) < 0);
 
     if(pthread_mutex_lock(&queue_lock) < 0) {
       printf("Failed to unlock queue mutex");
