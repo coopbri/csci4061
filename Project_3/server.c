@@ -117,10 +117,18 @@ void * dispatch(void *arg) {
   request_t request;
   while (1) {
     // Accept client connection
-    fd = accept_connection();
-    if((fd = accept_connection()) < 0) {
-      exit(1);
+    if(pthread_mutex_lock(&queue_lock) < 0) {
+        printf("Failed to lock queue mutex");
     }
+
+    while((fd = accept_connection()) < 0) {
+      usleep(20);
+    }
+
+    if(pthread_mutex_lock(&queue_lock) < 0) {
+      printf("Failed to unlock queue mutex");
+    }
+
     // Get request from the client
     if(fd > 0 && (get_request(fd, filebuf) != 0)) {
       printf("Failed!");
@@ -156,12 +164,14 @@ void * dispatch(void *arg) {
 // TODO: Chase
 void * worker(void *arg) {
   int fd;
+  int ms_time;
   char *request;
   char abs_path[1024];
 
   while (1) {
 
     // Start recording time
+    ms_time = getCurrentTimeInMills();
 
     // Get the request from the queue
     if(pthread_mutex_lock(&queue_lock) < 0) {
@@ -185,10 +195,11 @@ void * worker(void *arg) {
     pthread_cond_broadcast(&queue_cv);
     // Get the data from the disk or the cache
     printf("File descriptor, %d\n", fd);
-    exit(1);
+    return NULL;
     // readFromDisk(abs_path);
 
     // Stop recording the time
+    ms_time = getCurrentTimeInMills() - ms_time;
 
     // Log the request into the file and terminal
 
