@@ -115,7 +115,6 @@ void * dispatch(void *arg) {
   int fd = 0;
   char filebuf[1024];
   request_t request;
-
   while (1) {
     // Accept client connection
     fd = accept_connection();
