@@ -78,4 +78,3 @@ int return_error(int fd, char *buf);
 
 
 #endif /* _UTIL_H */
-
