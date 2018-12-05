@@ -234,9 +234,6 @@ void * worker(void *arg) {
     // Get the data from the disk or the cache
     // Stop recording the time
     ms_time = getCurrentTimeInMills() - ms_time;
-
-    // test time time_taken
-    printf("Worker took %.3f seconds to execute \n", time_taken);
     // Log the request into the file and terminal
 
     // return the result
