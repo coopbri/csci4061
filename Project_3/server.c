@@ -25,6 +25,8 @@ pthread_mutex_t queue_lock = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t queue_cv = PTHREAD_COND_INITIALIZER;
 int queue_fill_slot = 0;
 int queue_grab_slot = 0;
+int num_dispatchers;
+int num_workers;
 
 /*
   THE CODE STRUCTURE GIVEN BELOW IS JUST A SUGGESTION. FEEL FREE TO MODIFY AS NEEDED
@@ -112,35 +114,37 @@ int getCurrentTimeInMills() {
 // Function to receive the request from the client and add to the queue
 // TODO: Chase
 void * dispatch(void *arg) {
-  int fd = 0;
   char filebuf[1024];
   request_t request;
+  int fd;
   while (1) {
     // Accept client connection
-    if((fd = accept_connection()) <= 0) {
-      fd = 0;
+
+    while(fd < 3) {
+      fd = accept_connection();
     }
+
     // Get request from the client
-    if(fd > 0 && (get_request(fd, filebuf) != 0)) {
-      printf("Failed!");
+    if(get_request(fd, filebuf) != 0) {
+      printf("Failed!\n");
     }
 
     // Add the request into the queue
     if(pthread_mutex_lock(&queue_lock) < 0) {
-      printf("Failed to lock queue mutex");
+      printf("Failed to lock queue mutex\n");
     }
 
-    while(fill_slot == MAX_QUEUE_LEN) {
+    while(queue_fill_slot == num_workers) {
       pthread_cond_wait(&queue_cv, &queue_lock);
     }
 
-    queue_buffer[fill_slot].fd = fd;
-    queue_buffer[fill_slot].request = filebuf;
-    fill_slot++;
-
+    request.fd = fd;
+    request.request = filebuf;
+    queue_buffer[queue_fill_slot] = request;
+    queue_fill_slot = (queue_fill_slot + 1) % num_dispatchers;
 
     if(pthread_mutex_unlock(&queue_lock) < 0) {
-      printf("Failed to unlock queue mutex");
+      printf("Failed to unlock queue mutex\n");
     }
     pthread_cond_broadcast(&queue_cv);
   }
@@ -152,6 +156,7 @@ void * dispatch(void *arg) {
 // Function to retrieve the request from the queue, process it and then return a result to the client
 // TODO: Chase
 void * worker(void *arg) {
+  int ms_time;
   int fd;
   char *request;
   char abs_path[1024];
@@ -159,29 +164,29 @@ void * worker(void *arg) {
   while (1) {
 
     // Start recording time
+    ms_time = getCurrentTimeInMills();
 
     // Get the request from the queue
     if(pthread_mutex_lock(&queue_lock) < 0) {
-      printf("Failed to lock queue mutex");
+      printf("Failed to lock queue mutex\n");
     }
 
-    while(fill_slot == 0) {
+    while(queue_fill_slot == queue_grab_slot) {
       pthread_cond_wait(&queue_cv, &queue_lock);
     }
 
-    fd = queue_buffer[master_slot].fd;
-    request = queue_buffer[master_slot].request;
-    fill_slot--;
+    fd = queue_buffer[queue_grab_slot].fd;
+    request = queue_buffer[queue_grab_slot].request;
+    queue_grab_slot = (queue_grab_slot + 1) % num_workers;
+    printf("File Descriptor: %d\n", fd);
 
     if(pthread_mutex_unlock(&queue_lock) < 0) {
-      printf("Failed to lock queue mutex");
+      printf("Failed to lock queue mutex\n");
     }
     pthread_cond_broadcast(&queue_cv);
     // Get the data from the disk or the cache
-    printf("File descriptor, %d", fd);
-    // readFromDisk(abs_path);
-
     // Stop recording the time
+    ms_time = getCurrentTimeInMills() - ms_time;
 
     // Log the request into the file and terminal
 
@@ -195,8 +200,6 @@ void * worker(void *arg) {
 int main(int argc, char **argv) {
   int port;
   char *path;
-  int num_dispatchers;
-  int num_workers;
   int dynamic_flag;
   int queue_length;
   int cache_size;
