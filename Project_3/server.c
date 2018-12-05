@@ -90,6 +90,11 @@ void initCache(){
 // TODO: Brian
 int readFromDisk(char * abs_path) {
   // Open and read the contents of file given the request
+  // might need to add arguments
+  if (open(abs_path, O_RDONLY) != 0) {
+    printf("Error accessing file.");
+    return -1;
+  }
 }
 
 /**********************************************************************************/
@@ -100,6 +105,28 @@ int readFromDisk(char * abs_path) {
 char* getContentType(char * mybuf) {
   // Should return the content type based on the file type in the request
   // (See Section 5 in Project description for more details)
+
+  int path_len = strlen(mybuf);
+  char content_type[12];
+
+  // TODO: Get file from buffer
+  // TODO: error check; return_error if problems accessing file
+  // TODO: fix warning, function returns address of local variable
+
+  if (path_len > 5 && strcmp(mybuf + path_len - 5, ".html") == 0) {
+    // file type is 'text/html'
+    strcpy(content_type, "text/html");
+  } else if (path_len > 4 && strcmp(mybuf + path_len - 4, ".jpg") == 0) {
+    // file type is 'image/jpeg'
+    strcpy(content_type, "image/jpeg");
+  } else if (path_len > 4 && strcmp(mybuf + path_len - 4, ".gif") == 0) {
+    // file type is 'image/gif'
+    strcpy(content_type, "image_gif");
+  } else {
+    // file type is 'text/plain'
+    strcpy(content_type, "text/plain");
+  }
+  return content_type;
 }
 
 // This function returns the current time in milliseconds
