@@ -7,8 +7,8 @@ X500: erlie003, rogne066, coope824
 - To compile the program, run the `make` command from a command line interface in the directory containing the source files (the Makefile is provided). This will result in an executable called `web_server`.
 To run the program, run the executable in the current directory with `.\web_server port path num_dispatchers num_workers dynamic_flag queue_length cache_size` (change the directory as needed). The final parameter is only needed if you would like to use caching (explained below). The parameters are:
 
-  - `port` (integer): | the port to run the server on (range of 1025-65535, inclusive)|
-  - `path` (string):  | path to web root location                                     |
+  - `port` (integer): the port to run the server on (range of 1025-65535, inclusive)
+  - `path` (string): path to web root location
   - `num_dispatchers` (integer): number of dispatcher threads to initialize
   - `num_workers` (integer): number of worker threads to initialize
   - `dynamic_flag` (integer): indicates static or dynamic worker thread pool size (default 0)
