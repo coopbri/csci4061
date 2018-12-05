@@ -26,6 +26,8 @@ pthread_cond_t queue_cv = PTHREAD_COND_INITIALIZER;
 int queue_fill_slot = 0;
 int queue_grab_slot = 0;
 int cache_size = 0;
+int num_dispatchers;
+int num_workers;
 
 /*
   THE CODE STRUCTURE GIVEN BELOW IS JUST A SUGGESTION. FEEL FREE TO MODIFY AS NEEDED
@@ -108,6 +110,11 @@ void initCache(){
 // TODO: Brian
 int readFromDisk(char * abs_path) {
   // Open and read the contents of file given the request
+  // might need to add arguments
+  if (open(abs_path, O_RDONLY) != 0) {
+    printf("Error accessing file.\n");
+    return -1;
+  }
 }
 
 /**********************************************************************************/
@@ -118,6 +125,28 @@ int readFromDisk(char * abs_path) {
 char* getContentType(char * mybuf) {
   // Should return the content type based on the file type in the request
   // (See Section 5 in Project description for more details)
+
+  int path_len = strlen(mybuf);
+  char *content_type = malloc(13*sizeof(char));
+
+  // TODO: Get file from buffer
+  // TODO: error check; return_error if problems accessing file
+  // TODO: fix warning, function returns address of local variable
+
+  if (path_len > 5 && strcmp(mybuf + path_len - 5, ".html") == 0) {
+    // file type is 'text/html'
+    strcpy(content_type, "text/html");
+  } else if (path_len > 4 && strcmp(mybuf + path_len - 4, ".jpg") == 0) {
+    // file type is 'image/jpeg'
+    strcpy(content_type, "image/jpeg");
+  } else if (path_len > 4 && strcmp(mybuf + path_len - 4, ".gif") == 0) {
+    // file type is 'image/gif'
+    strcpy(content_type, "image_gif");
+  } else {
+    // file type is 'text/plain'
+    strcpy(content_type, "text/plain");
+  }
+  return content_type;
 }
 
 // This function returns the current time in milliseconds
@@ -132,35 +161,37 @@ int getCurrentTimeInMills() {
 // Function to receive the request from the client and add to the queue
 // TODO: Chase
 void * dispatch(void *arg) {
-  int fd = 0;
   char filebuf[1024];
   request_t request;
+  int fd;
   while (1) {
     // Accept client connection
-    if((fd = accept_connection()) <= 0) {
-      fd = 0;
+
+    while(fd < 3) {
+      fd = accept_connection();
     }
+
     // Get request from the client
-    if(fd > 0 && (get_request(fd, filebuf) != 0)) {
-      printf("Failed!");
+    if(get_request(fd, filebuf) != 0) {
+      printf("Failed!\n");
     }
 
     // Add the request into the queue
     if(pthread_mutex_lock(&queue_lock) < 0) {
-      printf("Failed to lock queue mutex");
+      printf("Failed to lock queue mutex\n");
     }
 
-    while(fill_slot == MAX_QUEUE_LEN) {
+    while(queue_fill_slot == num_workers) {
       pthread_cond_wait(&queue_cv, &queue_lock);
     }
 
-    queue_buffer[fill_slot].fd = fd;
-    queue_buffer[fill_slot].request = filebuf;
-    fill_slot++;
-
+    request.fd = fd;
+    request.request = filebuf;
+    queue_buffer[queue_fill_slot] = request;
+    queue_fill_slot = (queue_fill_slot + 1) % num_dispatchers;
 
     if(pthread_mutex_unlock(&queue_lock) < 0) {
-      printf("Failed to unlock queue mutex");
+      printf("Failed to unlock queue mutex\n");
     }
     pthread_cond_broadcast(&queue_cv);
   }
@@ -172,6 +203,7 @@ void * dispatch(void *arg) {
 // Function to retrieve the request from the queue, process it and then return a result to the client
 // TODO: Chase
 void * worker(void *arg) {
+  int ms_time;
   int fd;
   char *request;
   char abs_path[1024];
@@ -179,17 +211,29 @@ void * worker(void *arg) {
   while (1) {
 
     // Start recording time
-    clock_t work_time;
-    work_time = clock();
-    // Get the request from the queue
-    get_request(fd, )
-    // Get the data from the disk or the cache
-    printf("File descriptor, %d", fd);
-    // readFromDisk(abs_path);
+    ms_time = getCurrentTimeInMills();
 
+    // Get the request from the queue
+    if(pthread_mutex_lock(&queue_lock) < 0) {
+      printf("Failed to lock queue mutex\n");
+    }
+
+    while(queue_fill_slot == queue_grab_slot) {
+      pthread_cond_wait(&queue_cv, &queue_lock);
+    }
+
+    fd = queue_buffer[queue_grab_slot].fd;
+    request = queue_buffer[queue_grab_slot].request;
+    queue_grab_slot = (queue_grab_slot + 1) % num_workers;
+    printf("File Descriptor: %d\n", fd);
+
+    if(pthread_mutex_unlock(&queue_lock) < 0) {
+      printf("Failed to lock queue mutex\n");
+    }
+    pthread_cond_broadcast(&queue_cv);
+    // Get the data from the disk or the cache
     // Stop recording the time
-    work_time = clock() - work_time;
-    double time_taken = ((double) work_time) / CLOCKS_PER_SEC; // in seconds
+    ms_time = getCurrentTimeInMills() - ms_time;
 
     // test time time_taken
     printf("Worker took %.3f seconds to execute \n", time_taken);
@@ -205,8 +249,6 @@ void * worker(void *arg) {
 int main(int argc, char **argv) {
   int port;
   char *path;
-  int num_dispatchers;
-  int num_workers;
   int dynamic_flag;
   int queue_length;
   int cache_size;
@@ -284,14 +326,14 @@ int main(int argc, char **argv) {
   pthread_t workers[num_workers];
 
   for (int i = 0; i < num_dispatchers; i++) {
-    if (pthread_create(&(dispatchers[i]), NULL, dispatch, (void *) queue_buffer) != 0) {
+    if (pthread_create(&(dispatchers[i]), NULL, dispatch, NULL) != 0) {
       printf("Error creating dispatcher thread.\n");
       exit(-1);
     }
   }
 
   for (int i = 0; i < num_workers; i++) {
-    if (pthread_create(&(workers[i]), NULL, worker, (void *) queue_buffer) != 0) {
+    if (pthread_create(&(workers[i]), NULL, worker, NULL) != 0) {
       printf("Error creating worker thread.\n");
       exit(-1);
     }
@@ -299,7 +341,7 @@ int main(int argc, char **argv) {
 
   for (int i = 0; i < num_dispatchers; i++) {
     if (pthread_join(dispatchers[i], NULL) != 0) {
-      printf("Error joining dispatcher thread.");
+      printf("Error joining dispatcher thread.\n");
     }
   }
 
