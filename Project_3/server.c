@@ -107,7 +107,7 @@ char* getContentType(char * mybuf) {
   // (See Section 5 in Project description for more details)
 
   int path_len = strlen(mybuf);
-  char content_type[12];
+  char *content_type = malloc(13*sizeof(char));
 
   // TODO: Get file from buffer
   // TODO: error check; return_error if problems accessing file
@@ -304,14 +304,14 @@ int main(int argc, char **argv) {
   pthread_t workers[num_workers];
 
   for (int i = 0; i < num_dispatchers; i++) {
-    if (pthread_create(&(dispatchers[i]), NULL, dispatch, (void *) queue_buffer) != 0) {
+    if (pthread_create(&(dispatchers[i]), NULL, dispatch, NULL) != 0) {
       printf("Error creating dispatcher thread.\n");
       exit(-1);
     }
   }
 
   for (int i = 0; i < num_workers; i++) {
-    if (pthread_create(&(workers[i]), NULL, worker, (void *) queue_buffer) != 0) {
+    if (pthread_create(&(workers[i]), NULL, worker, NULL) != 0) {
       printf("Error creating worker thread.\n");
       exit(-1);
     }
