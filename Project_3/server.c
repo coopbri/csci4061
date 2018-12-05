@@ -92,7 +92,7 @@ int readFromDisk(char * abs_path) {
   // Open and read the contents of file given the request
   // might need to add arguments
   if (open(abs_path, O_RDONLY) != 0) {
-    printf("Error accessing file.");
+    printf("Error accessing file.\n");
     return -1;
   }
 }
@@ -319,7 +319,7 @@ int main(int argc, char **argv) {
 
   for (int i = 0; i < num_dispatchers; i++) {
     if (pthread_join(dispatchers[i], NULL) != 0) {
-      printf("Error joining dispatcher thread.");
+      printf("Error joining dispatcher thread.\n");
     }
   }
 
