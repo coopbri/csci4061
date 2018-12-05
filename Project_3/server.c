@@ -25,6 +25,7 @@ pthread_mutex_t queue_lock = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t queue_cv = PTHREAD_COND_INITIALIZER;
 int queue_fill_slot = 0;
 int queue_grab_slot = 0;
+int cache_size = 0;
 int num_dispatchers;
 int num_workers;
 
@@ -45,6 +46,7 @@ typedef struct cache_entry {
 } cache_entry_t;
 
 request_t queue_buffer[MAX_QUEUE_LEN];
+cache_entry_t *cache_buffer;
 
 /* ************************ Dynamic Pool Code ***********************************/
 // Extra Credit: This function implements the policy to change the worker thread pool dynamically
@@ -64,25 +66,43 @@ void * dynamic_pool_size_update(void *arg) {
 // TODO: Jared
 int getCacheIndex(char *request){
   /// return the index if the request is present in the cache
+  for (int i = 0; i < MAX_QUEUE_LEN; i++) {
+    if(cache_buffer[i].request == request){
+      return i;
+    }
+  }
+  return -1;
 }
 
 // Function to add the request and its file content into the cache
 // TODO: Jared
 void addIntoCache(char *mybuf, char *memory , int memory_size){
   // It should add the request at an index according to the cache replacement policy
-  // Make sure to allocate/free memeory when adding or replacing cache entries
+  // Make sure to allocate/free memory when adding or replacing cache entries
+  cache_entry_t new_entry;
+  new_entry.len = memory_size;
+  new_entry.request = mybuf;
+  new_entry.content = memory;
+  if(cache_size == MAX_CE){
+    printf("Cache full");
+  } else {
+    cache_buffer[cache_size] = new_entry;
+    cache_size++;
+  }
 }
 
 // clear the memory allocated to the cache
 // TODO: Jared
 void deleteCache(){
   // De-allocate/free the cache memory
+  free(cache_buffer);
 }
 
 // Function to initialize the cache
 // TODO: Jared
 void initCache(){
   // Allocating memory and initializing the cache array
+  cache_buffer = (struct cache_entry*) malloc(sizeof(struct cache_entry) * MAX_CE);
 }
 
 // Function to open and read the file from the disk into the memory
@@ -214,7 +234,6 @@ void * worker(void *arg) {
     // Get the data from the disk or the cache
     // Stop recording the time
     ms_time = getCurrentTimeInMills() - ms_time;
-
     // Log the request into the file and terminal
 
     // return the result
