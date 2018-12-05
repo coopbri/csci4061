@@ -79,16 +79,19 @@ int getCacheIndex(char *request){
 void addIntoCache(char *mybuf, char *memory , int memory_size){
   // It should add the request at an index according to the cache replacement policy
   // Make sure to allocate/free memory when adding or replacing cache entries
-  cache_entry_t new_entry;
-  new_entry.len = memory_size;
-  new_entry.request = mybuf;
-  new_entry.content = memory;
+  cache_entry_t *new_entry;
+  new_entry = (struct cache_entry*) malloc(sizeof(struct cache_entry));
+
+  new_entry->len = memory_size;
+  new_entry->request = mybuf;
+  new_entry->content = memory;
   if(cache_size == MAX_CE){
     printf("Cache full");
   } else {
-    cache_buffer[cache_size] = new_entry;
+    cache_buffer[cache_size] = *new_entry;
     cache_size++;
   }
+
 }
 
 // clear the memory allocated to the cache
