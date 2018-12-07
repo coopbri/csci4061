@@ -110,9 +110,9 @@ void initCache(){
 // TODO: Brian
 int readFromDisk(char * abs_path) {
   // Open and read the contents of file given the request
-  // might need to add arguments
+
   if (open(abs_path, O_RDONLY) != 0) {
-    printf("Error accessing file.\n");
+    printf("Error opening file.\n");
     return -1;
   }
 }
@@ -126,25 +126,27 @@ char* getContentType(char * mybuf) {
   // Should return the content type based on the file type in the request
   // (See Section 5 in Project description for more details)
 
+  struct stat stat_buf;
+  if (stat(mybuf, &stat_buf) != 0) {
+    printf("Error accessing file.\n");
+    return (void *) -1;
+  }
+
   int path_len = strlen(mybuf);
   char *content_type = malloc(13*sizeof(char));
 
-  // TODO: Get file from buffer
-  // TODO: error check; return_error if problems accessing file
-  // TODO: fix warning, function returns address of local variable
-
   if (path_len > 5 && strcmp(mybuf + path_len - 5, ".html") == 0) {
     // file type is 'text/html'
-    strcpy(content_type, "text/html");
+    strcpy(content_type, "text/html\n");
   } else if (path_len > 4 && strcmp(mybuf + path_len - 4, ".jpg") == 0) {
     // file type is 'image/jpeg'
-    strcpy(content_type, "image/jpeg");
+    strcpy(content_type, "image/jpeg\n");
   } else if (path_len > 4 && strcmp(mybuf + path_len - 4, ".gif") == 0) {
     // file type is 'image/gif'
-    strcpy(content_type, "image_gif");
+    strcpy(content_type, "image/gif\n");
   } else {
     // file type is 'text/plain'
-    strcpy(content_type, "text/plain");
+    strcpy(content_type, "text/plain\n");
   }
   return content_type;
 }
