@@ -227,6 +227,7 @@ void * dispatch(void *arg) {
       printf("Failed to unlock queue mutex\n");
     }
     pthread_cond_signal(&queue_cv);
+    fd = 0;
   }
   return NULL;
 }
