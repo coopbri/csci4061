@@ -46,7 +46,7 @@ typedef struct cache_entry {
 } cache_entry_t;
 
 request_t queue_buffer[MAX_QUEUE_LEN];
-cache_entry_t *cache_buffer;
+cache_entry_t **cache_buffer;
 
 /* ************************ Dynamic Pool Code ***********************************/
 // Extra Credit: This function implements the policy to change the worker thread pool dynamically
@@ -67,7 +67,7 @@ void * dynamic_pool_size_update(void *arg) {
 int getCacheIndex(char *request){
   /// return the index if the request is present in the cache
   for (int i = 0; i < MAX_QUEUE_LEN; i++) {
-    if(cache_buffer[i].request == request){
+    if(cache_buffer[i]->request == request){
       return i;
     }
   }
@@ -79,30 +79,61 @@ int getCacheIndex(char *request){
 void addIntoCache(char *mybuf, char *memory , int memory_size){
   // It should add the request at an index according to the cache replacement policy
   // Make sure to allocate/free memory when adding or replacing cache entries
-  cache_entry_t new_entry;
-  new_entry.len = memory_size;
-  new_entry.request = mybuf;
-  new_entry.content = memory;
+
+  // creates a pointer to a struct and mallocs a size of one
+  cache_entry_t *new_entry;
+  new_entry = (struct cache_entry*) malloc(sizeof(struct cache_entry));
+
+  new_entry->len = memory_size;
+  new_entry->request = mybuf;
+  new_entry->content = memory;
+
+  /*
+    if = cache at max size print "its full bud"
+    else = goes into a check if pointer is present
+  */
   if(cache_size == MAX_CE){
     printf("Cache full");
   } else {
-    cache_buffer[cache_size] = new_entry;
-    cache_size++;
+    if (cache_buffer[cache_size % MAX_CE]->len){
+      /*
+        if pointer is present we free up that slot
+        then we place our new entry into that slot
+        increment the size of cache
+      */
+      free(cache_buffer[cache_size % MAX_CE]);
+      cache_buffer[cache_size % MAX_CE] = new_entry;
+      cache_size++;
+    } else {
+      /*
+        if no pointer is found then we just place the
+        pointer to struct into the slot
+      */
+      cache_buffer[cache_size % MAX_CE] = new_entry;
+      cache_size++;
+    }
   }
+
 }
 
 // clear the memory allocated to the cache
 // TODO: Jared
 void deleteCache(){
   // De-allocate/free the cache memory
-  free(cache_buffer);
+  // frees the pointers within the pointer array first
+  for (int i=0; i<MAX_CE; i++) {
+    free(cache_buffer[i]);
+}
+// then we free the pointer array
+free(cache_buffer);
 }
 
 // Function to initialize the cache
 // TODO: Jared
 void initCache(){
   // Allocating memory and initializing the cache array
-  cache_buffer = (struct cache_entry*) malloc(sizeof(struct cache_entry) * MAX_CE);
+  // creates an array of pointers, which these pointers point to structs
+  cache_buffer = (struct cache_entry **)malloc(sizeof(struct cache_entry *) * MAX_CE);
 }
 
 // Function to open and read the file from the disk into the memory
@@ -165,7 +196,7 @@ int getCurrentTimeInMills() {
 void * dispatch(void *arg) {
   char filebuf[1024];
   request_t request;
-  int fd;
+  int fd = 0;
   while (1) {
     // Accept client connection
 
@@ -195,7 +226,12 @@ void * dispatch(void *arg) {
     if(pthread_mutex_unlock(&queue_lock) < 0) {
       printf("Failed to unlock queue mutex\n");
     }
+<<<<<<< HEAD
     pthread_cond_signal(&queue_cv);
+=======
+    pthread_cond_broadcast(&queue_cv);
+    fd = 0;
+>>>>>>> dev_jared
   }
   return NULL;
 }
@@ -239,6 +275,8 @@ void * worker(void *arg) {
     // Log the request into the file and terminal
 
     // return the result
+    close(fd);
+    fd = 0;
   }
   return NULL;
 }
