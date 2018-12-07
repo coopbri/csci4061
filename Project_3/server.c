@@ -193,7 +193,7 @@ void * dispatch(void *arg) {
     if(pthread_mutex_unlock(&queue_lock) < 0) {
       printf("Failed to unlock queue mutex\n");
     }
-    pthread_cond_broadcast(&queue_cv);
+    pthread_cond_signal(&queue_cv);
   }
   return NULL;
 }
@@ -230,7 +230,7 @@ void * worker(void *arg) {
     if(pthread_mutex_unlock(&queue_lock) < 0) {
       printf("Failed to lock queue mutex\n");
     }
-    pthread_cond_broadcast(&queue_cv);
+    pthread_cond_signal(&queue_cv);
     // Get the data from the disk or the cache
     // Stop recording the time
     ms_time = getCurrentTimeInMills() - ms_time;
