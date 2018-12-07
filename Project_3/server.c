@@ -226,12 +226,7 @@ void * dispatch(void *arg) {
     if(pthread_mutex_unlock(&queue_lock) < 0) {
       printf("Failed to unlock queue mutex\n");
     }
-<<<<<<< HEAD
     pthread_cond_signal(&queue_cv);
-=======
-    pthread_cond_broadcast(&queue_cv);
-    fd = 0;
->>>>>>> dev_jared
   }
   return NULL;
 }
