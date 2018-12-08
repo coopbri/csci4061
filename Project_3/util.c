@@ -87,14 +87,14 @@ void init(int port) {
 
    sd = socket(AF_INET, SOCK_STREAM, 0);
    if(sd < 0) {
-      perror("init(): socket() error!\n");
+      perror("init(): socket() error!");
       exit(1);
    }
    flag = TRUE;
    ret_val = setsockopt(sd, SOL_SOCKET, SO_REUSEADDR, (char*) &flag, sizeof(flag));
 
    if (ret_val == -1) {
-      perror("init(): setsockopt(SO_REUSEADDR) error!\n");
+      perror("init(): setsockopt(SO_REUSEADDR) error!");
       exit(1);
    }
 
@@ -103,12 +103,12 @@ void init(int port) {
    addr.sin_port = htons(port);
 
    if((bind(sd, (struct sockaddr*) &addr, sizeof(addr))) == -1) {
-      perror("init(): bind() error!\n");
+      perror("init(): bind() error!");
       exit(1);
    }
 
    if ((listen(sd, 20)) == -1) {
-      perror("init(): listen() error!\n");
+      perror("init(): listen() error!");
       exit(1);
    }
 
@@ -130,7 +130,7 @@ int accept_connection(void) {
    // accept one connection using accept()
    // return the fd returned by accept()
    if (pthread_mutex_lock(&accept_con_mutex) < 0) {
-   		printf("Failed to lock connection mutex.\n");
+   		printf("Failed to lock connection mutex.");
    }
 
    int newsock;
@@ -142,7 +142,7 @@ int accept_connection(void) {
    newsock = accept(master_fd, (struct sockaddr *)&new_recv_addr, &addr_len);
 
    if (pthread_mutex_unlock(&accept_con_mutex) < 0) {
-   		printf("Failed to unlock connection mutex.\n");
+   		printf("Failed to unlock connection mutex.");
    }
 
    return newsock;
@@ -173,13 +173,13 @@ int get_request(int fd, char *filename) {
    char buf[2048];
    FILE *stream = fdopen(fd,"r");
 	if (stream == NULL) {
-		printf("Failed to open connection to client: %s\n", strerror(errno));
+		printf("Failed to open connection to client: %s", strerror(errno));
       close(fd);
 		return -4;
 	}
 
    if (fgets(buf,2048,stream) == NULL) {
-      printf("Fgets failed to read from client: %s\n", strerror(errno));
+      printf("Fgets failed to read from client: %s", strerror(errno));
       close(fd);
       return -3;
    }
@@ -192,7 +192,7 @@ int get_request(int fd, char *filename) {
    }
 
    if (strcmp("GET",strings[0])!=0) {
-      printf("Not a GET command\n");
+      printf("Not a GET command");
       close(fd);
       return -1;
    }
@@ -205,7 +205,7 @@ int get_request(int fd, char *filename) {
     }
 
    if (strstr(strings[1],"..") != NULL || strstr(strings[1],"//") != NULL) {
-   	  printf("Attempted security breach.\n");
+   	  printf("Attempted security breach.");
       close(fd);
       return -4;
    }
@@ -216,6 +216,7 @@ int get_request(int fd, char *filename) {
 
    strncpy(filename,strings[1],1024);
    filename[1023] = '\0'; // just in case
+   freemakeargv(strings);
 
    return 0;
 
@@ -306,7 +307,7 @@ int return_error(int fd, char *buf) {
          close(fd);
          return -3;
       }
-
+   
       if (fflush(stream) < 0) {
    	   printf("Failed to flush stream.\n");
          close(fd);

@@ -182,11 +182,11 @@ char* getContentType(char * mybuf) {
   return content_type;
 }
 
-// This function returns the current time in milliseconds
-int getCurrentTimeInMills() {
+// This function returns the current time in microseconds
+long getCurrentTimeInMillis() {
   struct timeval curr_time;
   gettimeofday(&curr_time, NULL);
-  return curr_time.tv_usec;
+  return curr_time.tv_sec * 1000000 + curr_time.tv_usec;
 }
 
 /**********************************************************************************/
