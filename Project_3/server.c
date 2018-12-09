@@ -26,8 +26,9 @@ pthread_cond_t queue_cv = PTHREAD_COND_INITIALIZER;
 int queue_fill_slot = 0;
 int queue_grab_slot = 0;
 int cache_size = 0;
-int num_dispatchers;
-int num_workers;
+int queue_length = 0;
+int cache_slot = 0;
+char *path;
 
 /*
   THE CODE STRUCTURE GIVEN BELOW IS JUST A SUGGESTION. FEEL FREE TO MODIFY AS NEEDED
@@ -45,7 +46,7 @@ typedef struct cache_entry {
     char *content;
 } cache_entry_t;
 
-request_t queue_buffer[MAX_QUEUE_LEN];
+request_t *queue_buffer;
 cache_entry_t **cache_buffer;
 
 /* ************************ Dynamic Pool Code ***********************************/
@@ -66,52 +67,50 @@ void * dynamic_pool_size_update(void *arg) {
 // TODO: Jared
 int getCacheIndex(char *request){
   /// return the index if the request is present in the cache
-  for (int i = 0; i < MAX_QUEUE_LEN; i++) {
-    if(cache_buffer[i]->request == request){
+  for (int i = 0; i < cache_size; i++) {
+    if(cache_buffer[i]->request == NULL) {
+      return -1;
+    }
+    if(strcmp(cache_buffer[i]->request, request) == 0){
       return i;
     }
   }
-  return -1;
 }
 
 // Function to add the request and its file content into the cache
 // TODO: Jared
-void addIntoCache(char *mybuf, char *memory , int memory_size){
+void addIntoCache(char *request, char *file , int memory_size){
   // It should add the request at an index according to the cache replacement policy
   // Make sure to allocate/free memory when adding or replacing cache entries
-
-  // creates a pointer to a struct and mallocs a size of one
-  cache_entry_t *new_entry;
-  new_entry = (struct cache_entry*) malloc(sizeof(struct cache_entry));
-
-  new_entry->len = memory_size;
-  new_entry->request = mybuf;
-  new_entry->content = memory;
-
   /*
     if = cache at max size print "its full bud"
     else = goes into a check if pointer is present
   */
-  if(cache_size == MAX_CE){
-    printf("Cache full");
+  if (cache_buffer[cache_slot]->len){
+    /*
+      if pointer is present we free up that slot
+      then we place our new entry into that slot
+      increment the size of cache
+    */
+    free(cache_buffer[cache_slot]->request);
+    free(cache_buffer[cache_slot]->content);
+    cache_buffer[cache_slot]->request = malloc(memory_size * sizeof(char));
+    cache_buffer[cache_slot]->content = malloc(memory_size * sizeof(char));
+    strcpy(cache_buffer[cache_slot]->request, request);
+    strcpy(cache_buffer[cache_slot]->content, file);
+    cache_buffer[cache_slot]->len = memory_size;
+    cache_slot = (cache_slot + 1) % cache_size;
   } else {
-    if (cache_buffer[cache_size % MAX_CE]->len){
-      /*
-        if pointer is present we free up that slot
-        then we place our new entry into that slot
-        increment the size of cache
-      */
-      free(cache_buffer[cache_size % MAX_CE]);
-      cache_buffer[cache_size % MAX_CE] = new_entry;
-      cache_size++;
-    } else {
-      /*
-        if no pointer is found then we just place the
-        pointer to struct into the slot
-      */
-      cache_buffer[cache_size % MAX_CE] = new_entry;
-      cache_size++;
-    }
+    /*
+      if no pointer is found then we just place the
+      pointer to struct into the slot
+    */
+    cache_buffer[cache_slot]->request = malloc(memory_size * sizeof(char));
+    cache_buffer[cache_slot]->content = malloc(memory_size * sizeof(char));
+    strcpy(cache_buffer[cache_slot]->request, request);
+    strcpy(cache_buffer[cache_slot]->content, file);
+    cache_buffer[cache_slot]->len = memory_size;
+    cache_slot = (cache_slot + 1) % cache_size;
   }
 
 }
@@ -121,11 +120,12 @@ void addIntoCache(char *mybuf, char *memory , int memory_size){
 void deleteCache(){
   // De-allocate/free the cache memory
   // frees the pointers within the pointer array first
-  for (int i=0; i<MAX_CE; i++) {
-    free(cache_buffer[i]);
-}
-// then we free the pointer array
-free(cache_buffer);
+  for (int i=0; i<cache_size; i++) {
+    free(cache_buffer[i]->request);
+    free(cache_buffer[i]->content);
+  }
+  // then we free the pointer array
+  free(cache_buffer);
 }
 
 // Function to initialize the cache
@@ -133,19 +133,31 @@ free(cache_buffer);
 void initCache(){
   // Allocating memory and initializing the cache array
   // creates an array of pointers, which these pointers point to structs
-  cache_buffer = (struct cache_entry **)malloc(sizeof(struct cache_entry *) * MAX_CE);
+  cache_buffer = (struct cache_entry **)malloc(sizeof(struct cache_entry *) * cache_size);
+  for(int i = 0; i < cache_size; i++) {
+    cache_buffer[i] = malloc(sizeof(struct cache_entry));
+  }
 }
 
 // Function to open and read the file from the disk into the memory
 // Add necessary arguments as needed
 // TODO: Brian
-int readFromDisk(char * abs_path) {
+int readFromDisk(char *request, struct stat *stat_buff, char **buf) {
+  FILE *f;
+  char *abs_path = malloc(sizeof(char) * (strlen(request) + strlen(path)) + 1);
   // Open and read the contents of file given the request
-
-  if (open(abs_path, O_RDONLY) != 0) {
-    printf("Error opening file.\n");
+  strcat(abs_path, path);
+  strcat(abs_path, request);
+  f = fopen(abs_path, "r");
+  if (stat(abs_path, stat_buff) != 0 && f == 0) {
+    perror("Error: ");
+    free(abs_path);
     return -1;
   }
+  (*buf) = (char *)malloc(stat_buff->st_size * sizeof(char) + 1);
+  fread(*buf, stat_buff->st_size, 1, f);
+  fclose(f);
+  free(abs_path);
 }
 
 /**********************************************************************************/
@@ -153,15 +165,9 @@ int readFromDisk(char * abs_path) {
 /* ************************************ Utilities ********************************/
 // Function to get the content type from the request
 // TODO: Brian
-char* getContentType(char * mybuf) {
+char* getContentType(char *mybuf) {
   // Should return the content type based on the file type in the request
   // (See Section 5 in Project description for more details)
-
-  struct stat stat_buf;
-  if (stat(mybuf, &stat_buf) != 0) {
-    printf("Error accessing file.\n");
-    return (void *) -1;
-  }
 
   int path_len = strlen(mybuf);
   char *content_type = malloc(13*sizeof(char));
@@ -174,7 +180,7 @@ char* getContentType(char * mybuf) {
     strcpy(content_type, "image/jpeg\n");
   } else if (path_len > 4 && strcmp(mybuf + path_len - 4, ".gif") == 0) {
     // file type is 'image/gif'
-    strcpy(content_type, "image/gif\n");
+    strcpy(content_type, "image/gif");
   } else {
     // file type is 'text/plain'
     strcpy(content_type, "text/plain\n");
@@ -214,15 +220,16 @@ void * dispatch(void *arg) {
       printf("Failed to lock queue mutex\n");
     }
 
-    while(queue_fill_slot == num_workers) {
+    while(queue_fill_slot == queue_length) {
       pthread_cond_wait(&queue_cv, &queue_lock);
     }
 
     request.fd = fd;
     request.request = filebuf;
     queue_buffer[queue_fill_slot] = request;
-    queue_fill_slot = (queue_fill_slot + 1) % num_dispatchers;
+    queue_fill_slot = (queue_fill_slot + 1) % queue_length;
 
+    fd = 0;
     if(pthread_mutex_unlock(&queue_lock) < 0) {
       printf("Failed to unlock queue mutex\n");
     }
@@ -237,15 +244,19 @@ void * dispatch(void *arg) {
 // Function to retrieve the request from the queue, process it and then return a result to the client
 // TODO: Chase
 void * worker(void *arg) {
-  int ms_time;
-  int fd;
+  int pthread_num = *(int *) arg;
+  int requests_handled = 0;
+  int ms_time = 0;
+  int fd = 0;
+  int index = 0;
   char *request;
   char abs_path[1024];
+  char log[1024];
 
   while (1) {
 
     // Start recording time
-    ms_time = getCurrentTimeInMills();
+    ms_time = getCurrentTimeInMillis();
 
     // Get the request from the queue
     if(pthread_mutex_lock(&queue_lock) < 0) {
@@ -258,21 +269,41 @@ void * worker(void *arg) {
 
     fd = queue_buffer[queue_grab_slot].fd;
     request = queue_buffer[queue_grab_slot].request;
-    queue_grab_slot = (queue_grab_slot + 1) % num_workers;
-    printf("File Descriptor: %d\n", fd);
+    queue_grab_slot = (queue_grab_slot + 1) % queue_length;
 
+    // Get the data from the disk or the cache
+    index = getCacheIndex(request);
+    if(index < 0) {
+      struct stat stat_buff;
+      char *file;
+      readFromDisk(request, &stat_buff, &file);
+      addIntoCache(request, file, stat_buff.st_size);
+      // Stop recording the time
+      ms_time = (getCurrentTimeInMillis() - ms_time);
+      requests_handled++;
+      sprintf(log, "[%d][%d][%d][%s][%ld][%d ms][MISS]\n", pthread_num, requests_handled, fd, request, stat_buff.st_size, ms_time);
+      printf("%s", log);
+      // Log the request into the file and terminal
+      // return the result
+      return_result(fd, getContentType(request), file, stat_buff.st_size);
+      free(file);
+      usleep(10);
+    } else {
+      // Stop recording the time
+      ms_time = (getCurrentTimeInMillis() - ms_time);
+      requests_handled++;
+      sprintf(log, "[%d][%d][%d][%s][%d][%d ms][HIT]\n", pthread_num, requests_handled, fd, request, cache_buffer[index]->len, ms_time);
+      printf("%s", log);
+      // Log the request into the file and terminal
+      // return the result
+      return_result(fd, getContentType(request), cache_buffer[index]->content, cache_buffer[index]->len);
+      usleep(30);
+    }
+    ms_time = 0;
     if(pthread_mutex_unlock(&queue_lock) < 0) {
       printf("Failed to lock queue mutex\n");
     }
     pthread_cond_signal(&queue_cv);
-    // Get the data from the disk or the cache
-    // Stop recording the time
-    ms_time = getCurrentTimeInMills() - ms_time;
-    // Log the request into the file and terminal
-
-    // return the result
-    close(fd);
-    fd = 0;
   }
   return NULL;
 }
@@ -281,10 +312,9 @@ void * worker(void *arg) {
 // TODO: Finish error checking and such. Chase & Brian
 int main(int argc, char **argv) {
   int port;
-  char *path;
   int dynamic_flag;
-  int queue_length;
-  int cache_size;
+  int num_dispatchers = 0;
+  int num_workers = 0;
 
   // -----------------------------ARGUMENT SETUP AND ERROR CHECKING----------------------------- //
   // Error check on number of arguments
@@ -353,10 +383,13 @@ int main(int argc, char **argv) {
   chdir(path);
 
   // Start the server and initialize cache
+  printf("Starting server on port %d: %d dispatchers, %d workers\n", port, num_dispatchers, num_workers);
+  initCache();
   // Create the queue array (bounded buffer)
+  queue_buffer = malloc(queue_length * sizeof(queue_buffer));
   // Initialize arrays for both thread types
-  pthread_t dispatchers[num_workers];
-  pthread_t workers[num_workers];
+  pthread_t dispatchers[queue_length];
+  pthread_t workers[queue_length];
 
   for (int i = 0; i < num_dispatchers; i++) {
     if (pthread_create(&(dispatchers[i]), NULL, dispatch, NULL) != 0) {
@@ -366,7 +399,7 @@ int main(int argc, char **argv) {
   }
 
   for (int i = 0; i < num_workers; i++) {
-    if (pthread_create(&(workers[i]), NULL, worker, NULL) != 0) {
+    if (pthread_create(&(workers[i]), NULL, worker, (void *)&i) != 0) {
       printf("Error creating worker thread.\n");
       exit(-1);
     }
@@ -379,6 +412,8 @@ int main(int argc, char **argv) {
   }
 
   // Clean up
+  free(queue_buffer);
+  deleteCache();
   // probably need to free threads, queue, cache
   // and destroy locks
   return 0;
