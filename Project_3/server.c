@@ -234,10 +234,6 @@ void * dispatch(void *arg) {
       printf("Failed to unlock queue mutex\n");
     }
     pthread_cond_signal(&queue_cv);
-=======
-    pthread_cond_signal(&queue_cv);
->>>>>>> project3_dev
-    fd = 0;
   }
   return NULL;
 }
