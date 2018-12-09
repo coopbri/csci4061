@@ -68,9 +68,6 @@ void * dynamic_pool_size_update(void *arg) {
 int getCacheIndex(char *request){
   /// return the index if the request is present in the cache
   for (int i = 0; i < cache_size; i++) {
-    printf("cache_buffer[%d]->request: |%s|\n", i, cache_buffer[i]->request);
-    printf("cache_buffer[%d]->content: |%s|\n", i, cache_buffer[i]->content);
-    printf("cache_buffer[%d]->len: |%d|\n", i, cache_buffer[i]->len);
     if(cache_buffer[i]->request == NULL) {
       return -1;
     }
@@ -285,9 +282,6 @@ void * worker(void *arg) {
       printf("%s", log);
       // Log the request into the file and terminal
       // return the result
-      printf("cache_buffer[%d]->request: |%s|\n", 0, cache_buffer[0]->request);
-      printf("cache_buffer[%d]->content: |%s|\n", 0, cache_buffer[0]->content);
-      printf("cache_buffer[%d]->len: |%d|\n", 0, cache_buffer[0]->len);
       return_result(fd, getContentType(request), file, stat_buff.st_size);
       free(file);
       usleep(10);
