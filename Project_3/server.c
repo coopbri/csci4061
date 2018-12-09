@@ -174,16 +174,16 @@ char* getContentType(char *mybuf) {
 
   if (path_len > 5 && strcmp(mybuf + path_len - 5, ".html") == 0) {
     // file type is 'text/html'
-    strcpy(content_type, "text/html\n");
+    strcpy(content_type, "text/html");
   } else if (path_len > 4 && strcmp(mybuf + path_len - 4, ".jpg") == 0) {
     // file type is 'image/jpeg'
-    strcpy(content_type, "image/jpeg\n");
+    strcpy(content_type, "image/jpeg");
   } else if (path_len > 4 && strcmp(mybuf + path_len - 4, ".gif") == 0) {
     // file type is 'image/gif'
     strcpy(content_type, "image/gif");
   } else {
     // file type is 'text/plain'
-    strcpy(content_type, "text/plain\n");
+    strcpy(content_type, "text/plain");
   }
   return content_type;
 }
