@@ -169,12 +169,6 @@ char* getContentType(char *mybuf) {
   // Should return the content type based on the file type in the request
   // (See Section 5 in Project description for more details)
 
-  struct stat stat_buf;
-  if (stat(mybuf, &stat_buf) != 0) {
-    printf("Error accessing file.\n");
-    return (void *) -1;
-  }
-
   int path_len = strlen(mybuf);
   char *content_type = malloc(13*sizeof(char));
 
