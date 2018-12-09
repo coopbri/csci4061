@@ -97,8 +97,8 @@ void addIntoCache(char *request, char *file , int memory_size){
     */
     free(cache_buffer[cache_slot]->request);
     free(cache_buffer[cache_slot]->content);
-    cache_buffer[cache_slot]->request = malloc(memory_size * sizeof(char) + 1);
-    cache_buffer[cache_slot]->content = malloc(memory_size * sizeof(char) + 1);
+    cache_buffer[cache_slot]->request = malloc(memory_size * sizeof(char));
+    cache_buffer[cache_slot]->content = malloc(memory_size * sizeof(char));
     strcpy(cache_buffer[cache_slot]->request, request);
     strcpy(cache_buffer[cache_slot]->content, file);
     cache_buffer[cache_slot]->len = memory_size;
@@ -108,14 +108,11 @@ void addIntoCache(char *request, char *file , int memory_size){
       if no pointer is found then we just place the
       pointer to struct into the slot
     */
-    cache_buffer[cache_slot]->request = malloc(memory_size * sizeof(char) + 1);
-    cache_buffer[cache_slot]->content = malloc(memory_size * sizeof(char) + 1);
+    cache_buffer[cache_slot]->request = malloc(memory_size * sizeof(char));
+    cache_buffer[cache_slot]->content = malloc(memory_size * sizeof(char));
     strcpy(cache_buffer[cache_slot]->request, request);
     strcpy(cache_buffer[cache_slot]->content, file);
     cache_buffer[cache_slot]->len = memory_size;
-    printf("cache_buffer[%d]->request: |%s|\n", cache_slot, cache_buffer[cache_slot]->request);
-    printf("cache_buffer[%d]->content: |%s|\n", cache_slot, cache_buffer[cache_slot]->content);
-    printf("cache_buffer[%d]->len: |%d|\n", cache_slot, cache_buffer[cache_slot]->len);
     cache_slot = (cache_slot + 1) % cache_size;
   }
 }
