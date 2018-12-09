@@ -121,7 +121,8 @@ void deleteCache(){
   // De-allocate/free the cache memory
   // frees the pointers within the pointer array first
   for (int i=0; i<cache_size; i++) {
-    free(cache_buffer[i]);
+    free(cache_buffer[i]->request);
+    free(cache_buffer[i]->content);
   }
   // then we free the pointer array
   free(cache_buffer);
@@ -167,12 +168,6 @@ int readFromDisk(char *request, struct stat *stat_buff, char **buf) {
 char* getContentType(char *mybuf) {
   // Should return the content type based on the file type in the request
   // (See Section 5 in Project description for more details)
-
-  struct stat stat_buf;
-  if (stat(mybuf, &stat_buf) != 0) {
-    printf("Error accessing file.\n");
-    return (void *) -1;
-  }
 
   int path_len = strlen(mybuf);
   char *content_type = malloc(13*sizeof(char));
@@ -261,7 +256,7 @@ void * worker(void *arg) {
   while (1) {
 
     // Start recording time
-    ms_time = getCurrentTimeInMills();
+    ms_time = getCurrentTimeInMillis();
 
     // Get the request from the queue
     if(pthread_mutex_lock(&queue_lock) < 0) {
@@ -284,7 +279,7 @@ void * worker(void *arg) {
       readFromDisk(request, &stat_buff, &file);
       addIntoCache(request, file, stat_buff.st_size);
       // Stop recording the time
-      ms_time = (ms_time - getCurrentTimeInMills());
+      ms_time = (getCurrentTimeInMillis() - ms_time);
       requests_handled++;
       sprintf(log, "[%d][%d][%d][%s][%ld][%d ms][MISS]\n", pthread_num, requests_handled, fd, request, stat_buff.st_size, ms_time);
       printf("%s", log);
@@ -295,7 +290,7 @@ void * worker(void *arg) {
       usleep(10);
     } else {
       // Stop recording the time
-      ms_time = (ms_time - getCurrentTimeInMills());
+      ms_time = (getCurrentTimeInMillis() - ms_time);
       requests_handled++;
       sprintf(log, "[%d][%d][%d][%s][%d][%d ms][HIT]\n", pthread_num, requests_handled, fd, request, cache_buffer[index]->len, ms_time);
       printf("%s", log);
