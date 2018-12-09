@@ -89,35 +89,35 @@ void addIntoCache(char *request, char *file , int memory_size){
     if = cache at max size print "its full bud"
     else = goes into a check if pointer is present
   */
-  cache_entry_t *new_entry;
-  new_entry->request = malloc(memory_size * sizeof(char) + 1);
-  new_entry->content = malloc(memory_size * sizeof(char) + 1);
-  strcpy(new_entry->request, request);
-  strcpy(new_entry->content, file);
-  new_entry->len = memory_size;
-
-
   if (cache_buffer[cache_slot]->len){
     /*
       if pointer is present we free up that slot
       then we place our new entry into that slot
       increment the size of cache
     */
-    free(cache_buffer[cache_slot]);
-    cache_buffer[cache_slot] = malloc(sizeof(new_entry));
-    cache_buffer[cache_slot] = new_entry;
+    free(cache_buffer[cache_slot]->request);
+    free(cache_buffer[cache_slot]->content);
+    cache_buffer[cache_slot]->request = malloc(memory_size * sizeof(char) + 1);
+    cache_buffer[cache_slot]->content = malloc(memory_size * sizeof(char) + 1);
+    strcpy(cache_buffer[cache_slot]->request, request);
+    strcpy(cache_buffer[cache_slot]->content, file);
+    cache_buffer[cache_slot]->len = memory_size;
     cache_slot = (cache_slot + 1) % cache_size;
   } else {
     /*
       if no pointer is found then we just place the
       pointer to struct into the slot
     */
-    cache_buffer[cache_slot] = malloc(sizeof(new_entry));
-    cache_buffer[cache_slot] = new_entry;
+    cache_buffer[cache_slot]->request = malloc(memory_size * sizeof(char) + 1);
+    cache_buffer[cache_slot]->content = malloc(memory_size * sizeof(char) + 1);
+    strcpy(cache_buffer[cache_slot]->request, request);
+    strcpy(cache_buffer[cache_slot]->content, file);
+    cache_buffer[cache_slot]->len = memory_size;
+    printf("cache_buffer[%d]->request: |%s|\n", cache_slot, cache_buffer[cache_slot]->request);
+    printf("cache_buffer[%d]->content: |%s|\n", cache_slot, cache_buffer[cache_slot]->content);
+    printf("cache_buffer[%d]->len: |%d|\n", cache_slot, cache_buffer[cache_slot]->len);
     cache_slot = (cache_slot + 1) % cache_size;
   }
-  free(new_entry->request);
-  free(new_entry->content);
 }
 
 // clear the memory allocated to the cache
@@ -288,6 +288,9 @@ void * worker(void *arg) {
       printf("%s", log);
       // Log the request into the file and terminal
       // return the result
+      printf("cache_buffer[%d]->request: |%s|\n", 0, cache_buffer[0]->request);
+      printf("cache_buffer[%d]->content: |%s|\n", 0, cache_buffer[0]->content);
+      printf("cache_buffer[%d]->len: |%d|\n", 0, cache_buffer[0]->len);
       return_result(fd, getContentType(request), file, stat_buff.st_size);
       free(file);
       usleep(10);
