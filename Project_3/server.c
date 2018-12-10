@@ -14,6 +14,9 @@
 #include <stdbool.h>
 #include <unistd.h>
 
+void *dispatch(void *arg);
+void *worker(void * arg);
+
 // defines:
 #define MAX_THREADS 100
 #define MAX_QUEUE_LEN 100
@@ -22,12 +25,18 @@
 #define BUFF_SIZE 1024
 
 pthread_mutex_t queue_lock = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t dynamic_lock = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t queue_cv = PTHREAD_COND_INITIALIZER;
 int queue_fill_slot = 0;
 int queue_grab_slot = 0;
 int cache_size = 0;
 int queue_length = 0;
 int cache_slot = 0;
+int dynamic_flag = 0;
+int num_dispatchers = 0;
+int num_workers = 0;
+pthread_t *dispatchers;
+pthread_t *workers;
 char *path;
 
 /*
@@ -53,11 +62,52 @@ cache_entry_t **cache_buffer;
 // Extra Credit: This function implements the policy to change the worker thread pool dynamically
 // depending on the number of requests
 // TODO: If we have time for the extra credit
-void * dynamic_pool_size_update(void *arg) {
-  while(1) {
-    // Run at regular intervals
-    // Increase / decrease dynamically based on your policy
-  }
+void* dynamic_pool_size_update(void *arg) {
+//   int fd = 0;
+//   int working = 0;
+//   int dispatched = 0;
+//   int dispatchers_needed = 0;
+//   int workers_needed = 0;
+//   if(pthread_create(&(workers[working]), NULL, worker, (void *)&working) != 0) {
+//     printf("Failed to create worker thread.\n");
+//   }
+//   working++;
+//   while(1) {
+//     // Run at regular intervals
+//     // Increase / decrease dynamically based on your policy
+//     usleep(60);
+//     while(fd < 3) {
+//       fd = accept_connection();
+//     }
+//     dispatchers_needed++;
+//     if(dispatched < dispatchers_needed) {
+//       if(pthread_create(&(dispatchers[dispatched]), NULL, worker, (void *)&fd) != 0) {
+//         printf("Failed to create dispatcher thread.\n");
+//       }
+//       dispatched++;
+//       if(workers_needed < num_workers) {
+//         workers_needed++;
+//       }
+//       if(dispatchers_needed > 0) {
+//         dispatchers_needed--;
+//       }
+//       if(pthread_detach((dispatchers[dispatched])) != 0) {
+//         printf("Failed to detach dispatcher.\n");
+//       }
+//     }
+//     if(working < workers_needed) {
+//       if(pthread_create(&(workers[working]), NULL, worker, (void *)&working) != 0) {
+//         printf("Failed to create worker thread.\n");
+//       }
+//       working++;
+//       if(workers_needed > 0) {
+//         workers_needed--;
+//       }
+//       if(pthread_detach(workers[working])) {
+//         printf("Failed to detach worker.\n");
+//       }
+//     }
+//   }
 }
 /**********************************************************************************/
 
@@ -112,7 +162,6 @@ void addIntoCache(char *request, char *file , int memory_size){
     cache_buffer[cache_slot]->len = memory_size;
     cache_slot = (cache_slot + 1) % cache_size;
   }
-
 }
 
 // clear the memory allocated to the cache
@@ -156,7 +205,6 @@ int readFromDisk(char *request, struct stat *stat_buff, char **buf) {
   }
   (*buf) = (char *)malloc(stat_buff->st_size * sizeof(char) + 1);
   fread(*buf, stat_buff->st_size, 1, f);
-  fclose(f);
   free(abs_path);
 }
 
@@ -203,10 +251,13 @@ void * dispatch(void *arg) {
   char filebuf[1024];
   request_t request;
   int fd = 0;
+  if(dynamic_flag == 1) {
+    fd = *(int *) arg;
+  }
   while (1) {
     // Accept client connection
 
-    while(fd < 3) {
+    while(fd < 3 || dynamic_flag == 1) {
       fd = accept_connection();
     }
 
@@ -248,17 +299,13 @@ void * worker(void *arg) {
   int requests_handled = 0;
   int ms_time = 0;
   int fd = 0;
+  int log_fd = 0;
   int index = 0;
   char *request;
   char abs_path[1024];
   char log[1024];
 
   while (1) {
-
-    // Start recording time
-    ms_time = getCurrentTimeInMillis();
-
-    // Get the request from the queue
     if(pthread_mutex_lock(&queue_lock) < 0) {
       printf("Failed to lock queue mutex\n");
     }
@@ -266,7 +313,10 @@ void * worker(void *arg) {
     while(queue_fill_slot == queue_grab_slot) {
       pthread_cond_wait(&queue_cv, &queue_lock);
     }
+    // Start recording time
+    ms_time = getCurrentTimeInMillis();
 
+    // Get the request from the queue
     fd = queue_buffer[queue_grab_slot].fd;
     request = queue_buffer[queue_grab_slot].request;
     queue_grab_slot = (queue_grab_slot + 1) % queue_length;
@@ -299,6 +349,15 @@ void * worker(void *arg) {
       return_result(fd, getContentType(request), cache_buffer[index]->content, cache_buffer[index]->len);
       usleep(30);
     }
+    log_fd = open("web_server_log", O_APPEND | O_CREAT | O_WRONLY, 0777);
+    if(log_fd < 0) {
+      perror("\n");
+      printf("Error setting up log\n");
+    }
+    if(write(log_fd, log, strlen(log)) < strlen(log)) {
+      printf("Something went wrong when writing to log\n");
+    }
+    close(log_fd);
     ms_time = 0;
     if(pthread_mutex_unlock(&queue_lock) < 0) {
       printf("Failed to lock queue mutex\n");
@@ -312,9 +371,6 @@ void * worker(void *arg) {
 // TODO: Finish error checking and such. Chase & Brian
 int main(int argc, char **argv) {
   int port;
-  int dynamic_flag;
-  int num_dispatchers = 0;
-  int num_workers = 0;
 
   // -----------------------------ARGUMENT SETUP AND ERROR CHECKING----------------------------- //
   // Error check on number of arguments
@@ -388,26 +444,36 @@ int main(int argc, char **argv) {
   // Create the queue array (bounded buffer)
   queue_buffer = malloc(queue_length * sizeof(queue_buffer));
   // Initialize arrays for both thread types
-  pthread_t dispatchers[queue_length];
-  pthread_t workers[queue_length];
+  workers = malloc(num_workers * sizeof(pthread_t));
+  dispatchers = malloc(num_dispatchers * sizeof(pthread_t));
 
-  for (int i = 0; i < num_dispatchers; i++) {
-    if (pthread_create(&(dispatchers[i]), NULL, dispatch, NULL) != 0) {
+  if(dynamic_flag == 0) {
+    for (int i = 0; i < num_dispatchers; i++) {
+      if (pthread_create(&(dispatchers[i]), NULL, dispatch, NULL) != 0) {
+        printf("Error creating dispatcher thread.\n");
+        exit(-1);
+      }
+    }
+
+    for (int i = 0; i < num_workers; i++) {
+      if (pthread_create(&(workers[i]), NULL, worker, (void *)&i) != 0) {
+        printf("Error creating worker thread.\n");
+        exit(-1);
+      }
+    }
+
+    for (int i = 0; i < num_dispatchers; i++) {
+      if (pthread_join(dispatchers[i], NULL) != 0) {
+        printf("Error joining dispatcher thread.\n");
+      }
+    }
+  } else {
+    pthread_t dynamic_thread;
+    if(pthread_create(&dynamic_thread, NULL, dynamic_pool_size_update, NULL) != 0) {
       printf("Error creating dispatcher thread.\n");
-      exit(-1);
     }
-  }
-
-  for (int i = 0; i < num_workers; i++) {
-    if (pthread_create(&(workers[i]), NULL, worker, (void *)&i) != 0) {
-      printf("Error creating worker thread.\n");
-      exit(-1);
-    }
-  }
-
-  for (int i = 0; i < num_dispatchers; i++) {
-    if (pthread_join(dispatchers[i], NULL) != 0) {
-      printf("Error joining dispatcher thread.\n");
+    if(pthread_join(dynamic_thread, NULL) != 0) {
+      printf("Error detaching thread.\n");
     }
   }
 
