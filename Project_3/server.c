@@ -94,8 +94,8 @@ void addIntoCache(char *request, char *file , int memory_size){
     */
     free(cache_buffer[cache_slot]->request);
     free(cache_buffer[cache_slot]->content);
-    cache_buffer[cache_slot]->request = malloc(memory_size * sizeof(char));
-    cache_buffer[cache_slot]->content = malloc(memory_size * sizeof(char));
+    cache_buffer[cache_slot]->request = (char*) malloc(memory_size * sizeof(char));
+    cache_buffer[cache_slot]->content = (char*) malloc(memory_size * sizeof(char));
     strcpy(cache_buffer[cache_slot]->request, request);
     strcpy(cache_buffer[cache_slot]->content, file);
     cache_buffer[cache_slot]->len = memory_size;
@@ -105,8 +105,8 @@ void addIntoCache(char *request, char *file , int memory_size){
       if no pointer is found then we just place the
       pointer to struct into the slot
     */
-    cache_buffer[cache_slot]->request = malloc(memory_size * sizeof(char));
-    cache_buffer[cache_slot]->content = malloc(memory_size * sizeof(char));
+    cache_buffer[cache_slot]->request = (char*) malloc(memory_size * sizeof(char));
+    cache_buffer[cache_slot]->content = (char*) malloc(memory_size * sizeof(char));
     strcpy(cache_buffer[cache_slot]->request, request);
     strcpy(cache_buffer[cache_slot]->content, file);
     cache_buffer[cache_slot]->len = memory_size;
@@ -135,7 +135,7 @@ void initCache(){
   // creates an array of pointers, which these pointers point to structs
   cache_buffer = (struct cache_entry **)malloc(sizeof(struct cache_entry *) * cache_size);
   for(int i = 0; i < cache_size; i++) {
-    cache_buffer[i] = malloc(sizeof(struct cache_entry));
+    cache_buffer[i] =(struct cache_entry *) malloc(sizeof(struct cache_entry));
   }
 }
 
@@ -144,7 +144,7 @@ void initCache(){
 // TODO: Brian
 int readFromDisk(char *request, struct stat *stat_buff, char **buf) {
   FILE *f;
-  char *abs_path = malloc(sizeof(char) * (strlen(request) + strlen(path)) + 1);
+  char *abs_path = (char *) malloc(sizeof(char) * (strlen(request) + strlen(path)) + 1);
   // Open and read the contents of file given the request
   strcat(abs_path, path);
   strcat(abs_path, request);
@@ -170,7 +170,7 @@ char* getContentType(char *mybuf) {
   // (See Section 5 in Project description for more details)
 
   int path_len = strlen(mybuf);
-  char *content_type = malloc(13*sizeof(char));
+  char *content_type = (char *) malloc(13*sizeof(char));
 
   if (path_len > 5 && strcmp(mybuf + path_len - 5, ".html") == 0) {
     // file type is 'text/html'
@@ -267,7 +267,7 @@ void * worker(void *arg) {
     }
 
     fd = queue_buffer[queue_grab_slot].fd;
-    request = queue_buffer[queue_grab_slot].request;
+    request = (char *)queue_buffer[queue_grab_slot].request;
     queue_grab_slot = (queue_grab_slot + 1) % queue_length;
 
     // Get the data from the disk or the cache
@@ -385,7 +385,7 @@ int main(int argc, char **argv) {
   printf("Starting server on port %d: %d dispatchers, %d workers\n", port, num_dispatchers, num_workers);
   initCache();
   // Create the queue array (bounded buffer)
-  queue_buffer = malloc(queue_length * sizeof(queue_buffer));
+  queue_buffer = (struct request_queue *) malloc(queue_length * sizeof(queue_buffer));
   // Initialize arrays for both thread types
   pthread_t dispatchers[queue_length];
   pthread_t workers[queue_length];
