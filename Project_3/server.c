@@ -63,51 +63,8 @@ cache_entry_t **cache_buffer;
 // depending on the number of requests
 // TODO: If we have time for the extra credit
 void* dynamic_pool_size_update(void *arg) {
-//   int fd = 0;
-//   int working = 0;
-//   int dispatched = 0;
-//   int dispatchers_needed = 0;
-//   int workers_needed = 0;
-//   if(pthread_create(&(workers[working]), NULL, worker, (void *)&working) != 0) {
-//     printf("Failed to create worker thread.\n");
-//   }
-//   working++;
-//   while(1) {
-//     // Run at regular intervals
-//     // Increase / decrease dynamically based on your policy
-//     usleep(60);
-//     while(fd < 3) {
-//       fd = accept_connection();
-//     }
-//     dispatchers_needed++;
-//     if(dispatched < dispatchers_needed) {
-//       if(pthread_create(&(dispatchers[dispatched]), NULL, worker, (void *)&fd) != 0) {
-//         printf("Failed to create dispatcher thread.\n");
-//       }
-//       dispatched++;
-//       if(workers_needed < num_workers) {
-//         workers_needed++;
-//       }
-//       if(dispatchers_needed > 0) {
-//         dispatchers_needed--;
-//       }
-//       if(pthread_detach((dispatchers[dispatched])) != 0) {
-//         printf("Failed to detach dispatcher.\n");
-//       }
-//     }
-//     if(working < workers_needed) {
-//       if(pthread_create(&(workers[working]), NULL, worker, (void *)&working) != 0) {
-//         printf("Failed to create worker thread.\n");
-//       }
-//       working++;
-//       if(workers_needed > 0) {
-//         workers_needed--;
-//       }
-//       if(pthread_detach(workers[working])) {
-//         printf("Failed to detach worker.\n");
-//       }
-//     }
-//   }
+  printf("Not implemented\n");
+  return -1;
 }
 /**********************************************************************************/
 
@@ -198,8 +155,7 @@ int readFromDisk(char *request, struct stat *stat_buff, char **buf) {
   strcat(abs_path, path);
   strcat(abs_path, request);
   f = fopen(abs_path, "r");
-  if (stat(abs_path, stat_buff) != 0 && f == 0) {
-    perror("Error: ");
+  if (f == NULL || stat(abs_path, stat_buff) != 0) {
     free(abs_path);
     return -1;
   }
@@ -283,11 +239,11 @@ void * dispatch(void *arg) {
     queue_fill_slot = (queue_fill_slot + 1) % queue_length;
 
     fd = 0;
+    usleep(100);
     if(pthread_mutex_unlock(&queue_lock) < 0) {
       printf("Failed to unlock queue mutex\n");
     }
     pthread_cond_signal(&queue_cv);
-    fd = 0;
   }
   return NULL;
 }
@@ -304,7 +260,7 @@ void * worker(void *arg) {
   int log_fd = 0;
   int index = 0;
   char *request;
-  char log[1024];
+  char log[BUFF_SIZE];
 
   while (1) {
     if(pthread_mutex_lock(&queue_lock) < 0) {
@@ -328,19 +284,26 @@ void * worker(void *arg) {
       struct stat stat_buff;
       char *file;
       if(readFromDisk(request, &stat_buff, &file) < 0) {
-        
+        ms_time = (getCurrentTimeInMillis() - ms_time);
+        requests_handled++;
+        sprintf(log, "[%d][%d][%d][%s][%d][%d ms][MISS]\n", pthread_num, requests_handled, fd, request, errno, ms_time);
+        printf("%s", log);
+        return_error(fd, strerror(errno));
+        errno = 0;
+        free(file);
+      } else {
+        addIntoCache(request, file, stat_buff.st_size);
+        // Stop recording the time
+        ms_time = (getCurrentTimeInMillis() - ms_time);
+        requests_handled++;
+        sprintf(log, "[%d][%d][%d][%s][%ld][%d ms][MISS]\n", pthread_num, requests_handled, fd, request, stat_buff.st_size, ms_time);
+        printf("%s", log);
+        // Log the request into the file and terminal
+        // return the result
+        return_result(fd, getContentType(request), file, stat_buff.st_size);
+        free(file);
+        usleep(100);
       }
-      addIntoCache(request, file, stat_buff.st_size);
-      // Stop recording the time
-      ms_time = (getCurrentTimeInMillis() - ms_time);
-      requests_handled++;
-      sprintf(log, "[%d][%d][%d][%s][%ld][%d ms][MISS]\n", pthread_num, requests_handled, fd, request, stat_buff.st_size, ms_time);
-      printf("%s", log);
-      // Log the request into the file and terminal
-      // return the result
-      return_result(fd, getContentType(request), file, stat_buff.st_size);
-      free(file);
-      usleep(10);
     } else {
       // Stop recording the time
       ms_time = (getCurrentTimeInMillis() - ms_time);
@@ -350,7 +313,7 @@ void * worker(void *arg) {
       // Log the request into the file and terminal
       // return the result
       return_result(fd, getContentType(request), cache_buffer[index]->content, cache_buffer[index]->len);
-      usleep(30);
+      usleep(100);
     }
     log_fd = open("web_server_log", O_APPEND | O_CREAT | O_WRONLY, 0777);
     if(log_fd < 0) {
@@ -391,6 +354,10 @@ int main(int argc, char **argv) {
   }
 
   path = argv[2];
+  if(strlen(path) > BUFF_SIZE) {
+    printf("Path cannot exceed a length greater than %d.\n", BUFF_SIZE);
+    return -1;
+  }
 
   num_dispatchers = atoi(argv[3]);
   // Verify proper number of dispatch threads.
