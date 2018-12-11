@@ -144,10 +144,10 @@ void addIntoCache(char *request, char *file , int memory_size){
     */
     free(cache_buffer[cache_slot]->request);
     free(cache_buffer[cache_slot]->content);
-    cache_buffer[cache_slot]->request = malloc(memory_size * sizeof(char));
+    cache_buffer[cache_slot]->request = malloc(BUFF_SIZE * sizeof(char));
     cache_buffer[cache_slot]->content = malloc(memory_size * sizeof(char));
     strcpy(cache_buffer[cache_slot]->request, request);
-    strcpy(cache_buffer[cache_slot]->content, file);
+    memcpy(cache_buffer[cache_slot]->content, file, memory_size);
     cache_buffer[cache_slot]->len = memory_size;
     cache_slot = (cache_slot + 1) % cache_size;
   } else {
@@ -155,10 +155,10 @@ void addIntoCache(char *request, char *file , int memory_size){
       if no pointer is found then we just place the
       pointer to struct into the slot
     */
-    cache_buffer[cache_slot]->request = malloc(memory_size * sizeof(char));
+    cache_buffer[cache_slot]->request = malloc(BUFF_SIZE * sizeof(char));
     cache_buffer[cache_slot]->content = malloc(memory_size * sizeof(char));
     strcpy(cache_buffer[cache_slot]->request, request);
-    strcpy(cache_buffer[cache_slot]->content, file);
+    memcpy(cache_buffer[cache_slot]->content, file, memory_size);
     cache_buffer[cache_slot]->len = memory_size;
     cache_slot = (cache_slot + 1) % cache_size;
   }
@@ -205,7 +205,9 @@ int readFromDisk(char *request, struct stat *stat_buff, char **buf) {
   }
   (*buf) = (char *)malloc(stat_buff->st_size * sizeof(char) + 1);
   fread(*buf, stat_buff->st_size, 1, f);
+  fclose(f);
   free(abs_path);
+  return 0;
 }
 
 /**********************************************************************************/
@@ -302,7 +304,6 @@ void * worker(void *arg) {
   int log_fd = 0;
   int index = 0;
   char *request;
-  char abs_path[1024];
   char log[1024];
 
   while (1) {
@@ -326,7 +327,9 @@ void * worker(void *arg) {
     if(index < 0) {
       struct stat stat_buff;
       char *file;
-      readFromDisk(request, &stat_buff, &file);
+      if(readFromDisk(request, &stat_buff, &file) < 0) {
+        
+      }
       addIntoCache(request, file, stat_buff.st_size);
       // Stop recording the time
       ms_time = (getCurrentTimeInMillis() - ms_time);
