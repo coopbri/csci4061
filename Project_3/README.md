@@ -3,6 +3,8 @@ CSci4061 Fall 2018 Project 3
 Name: Jared Erlien, Chase Rogness, Brian Cooper
 
 X500: erlie003, rogne066, coope824
+
+Group Number: 17
 ___
 #### Individual Contributions
 - All: Worked on main function error checking and structure. Worked on overall program error checking and memory management. Worked on request handling.
