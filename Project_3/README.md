@@ -28,3 +28,8 @@ To run the program, run the executable in the current directory with `.\web_serv
 - The program works by (how the program works)
 - This program supports caching. The caching mechanism works by (explanation of caching mechanism used)
 - (explanation of policy to dynamically change worker thread pool size)
+
+- Current testing:
+- terminal 1: ./web_server 9000 path_to_project3/testing 3 3 0 3 3
+- terminal 2: wget -i 127.0.0.1:9000/testurls
+- Error occurs due to issue with strcpy from the queue, can print it out but cant seem to copy it over.
