@@ -4,6 +4,15 @@ Name: Jared Erlien, Chase Rogness, Brian Cooper
 
 X500: erlie003, rogne066, coope824
 
+Group Number: 17
+___
+#### Individual Contributions
+- All: Worked on main function error checking and structure. Worked on overall program error checking and memory management. Worked on request handling.
+- Jared: Worked on cache functions, cache memory management and cache requests.
+- Chase: Worked on worker and dispatcher thread functions. Worked on dynamic flag and mutex lock code.
+- Brian: Worked on reading from disk and obtaining file information (such as content type). Worked on stat struct.
+___
+#### Project Information
 - To compile the program, run the `make` command from a command line interface in the directory containing the source files (the Makefile is provided). This will result in an executable called `web_server`.
 To run the program, run the executable in the current directory with `.\web_server port path num_dispatchers num_workers dynamic_flag queue_length cache_size` (change the directory as needed). The final parameter is only needed if you would like to use caching (explained below). The parameters are:
 
