@@ -130,7 +130,7 @@ int accept_connection(void) {
    // accept one connection using accept()
    // return the fd returned by accept()
    if (pthread_mutex_lock(&accept_con_mutex) < 0) {
-   		printf("Failed to lock connection mutex.");
+   		printf("Failed to lock connection mutex.\n");
    }
 
    int newsock;
@@ -142,7 +142,7 @@ int accept_connection(void) {
    newsock = accept(master_fd, (struct sockaddr *)&new_recv_addr, &addr_len);
 
    if (pthread_mutex_unlock(&accept_con_mutex) < 0) {
-   		printf("Failed to unlock connection mutex.");
+   		printf("Failed to unlock connection mutex.\n");
    }
 
    return newsock;
@@ -173,12 +173,13 @@ int get_request(int fd, char *filename) {
    char buf[2048];
    FILE *stream = fdopen(fd,"r");
 	if (stream == NULL) {
-		printf("Failed to open connection to client: %s", strerror(errno));
+		printf("Failed to open connection to client: %s\n", strerror(errno));
+      close(fd);
 		return -4;
 	}
 
    if (fgets(buf,2048,stream) == NULL) {
-   	  printf("Fgets failed to read from client: %s", strerror(errno));
+      printf("Fgets failed to read from client: %s\n", strerror(errno));
       close(fd);
       return -3;
    }
@@ -191,30 +192,31 @@ int get_request(int fd, char *filename) {
    }
 
    if (strcmp("GET",strings[0])!=0) {
-   	  printf("Not a GET command");
+      printf("Not a GET command\n");
       close(fd);
       return -1;
    }
 
    // Makeargv had an issue.
    if (strings[1] == NULL) {
-     printf("Error in parsing request. \n");
-   		close(fd);
-    	return -5;
+      printf("Error in parsing request. \n");
+      close(fd);
+      return -5;
     }
 
    if (strstr(strings[1],"..") != NULL || strstr(strings[1],"//") != NULL) {
-   	  printf("Attempted security breach.");
+   	  printf("Attempted security breach.\n");
       close(fd);
       return -4;
    }
 
    if (strlen(strings[1]) > 1024) {
-   		printf("BUFFER OVERFLOW IMMINENT!");
+   		printf("BUFFER OVERFLOW IMMINENT!\n");
    }
 
    strncpy(filename,strings[1],1024);
    filename[1023] = '\0'; // just in case
+   freemakeargv(strings);
 
    return 0;
 
@@ -248,26 +250,33 @@ int return_result(int fd, char *content_type, char *buf, int numbytes) {
 
    FILE *stream = fdopen(fd,"w");
 
-if (stream == NULL) {
-	printf("Failed to open stream.\n");
-	return -1;
-} else {
+   if (stream == NULL) {
+	   printf("Failed to open stream.\n");
+      close(fd);
+	   return -4;
+   } else {
 
-   if (fprintf(stream,"HTTP/1.0 200 OK\nContent-Type: %s\nContent-Length: %d\nConnection: Close\n\n", content_type, numbytes) < 0) {
+      if (fprintf(stream,"HTTP/1.0 200 OK\nContent-Type: %s\nContent-Length: %d\nConnection: Close\n\n", content_type, numbytes) < 0) {
+   	   printf("Failed to print to stream.\n");
+         close(fd);
+         return -3;
+      }
 
-   		printf("Failed to print to stream.\n");
+      if (fflush(stream) < 0) {
+   	   printf("Failed to flush stream.\n");
+         close(fd);
+         return -2;
+      }
+
+      if (write(fd,buf,numbytes) < 0) {
+         printf("Failed to write data back to client: %s\n", strerror(errno));
+         close(fd);
+         return -1;
+      }
+
+      close(fd);
+      return 0;
    }
-   if (fflush(stream) < 0) {
-
-   		printf("Failed to flush stream.\n");
-   }
-
-   if (write(fd,buf,numbytes) < 0) {
-   		printf("Failed to write data back to client: %s", strerror(errno));
-   }
-
-   close(fd);
-}
 }
 
 
@@ -287,10 +296,31 @@ int return_error(int fd, char *buf) {
 
    FILE *stream = fdopen(fd,"w");
 
-   fprintf(stream,"HTTP/1.0 404 Not Found\nContent-Length: %d\nConnection: Close\n\n",strlen(buf));
-   fflush(stream);
+   if (stream == NULL){
+      printf("Failed to open stream.\n");
+      close(fd);
+      return -4;
+   } else {
 
-   write(fd,buf,strlen(buf));
-   close(fd);
+      if (fprintf(stream,"HTTP/1.0 404 Not Found\nContent-Length: %d\nConnection: Close\n\n",strlen(buf)) < 0) {
+   	   printf("Failed to print to stream.\n");
+         close(fd);
+         return -3;
+      }
 
+      if (fflush(stream) < 0) {
+   	   printf("Failed to flush stream.\n");
+         close(fd);
+         return -2;
+      }
+
+      if (write(fd,buf,strlen(buf)) < 0){
+         printf("Failed to write error back to client.\n");
+         close(fd);
+         return -1;
+      }
+
+      close(fd);
+      return 0;
+   }
 }
