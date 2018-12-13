@@ -44,7 +44,7 @@ pthread_cond_t slots = PTHREAD_COND_INITIALIZER;
 // structs:
 typedef struct request_queue {
    int fd;
-   void *request;
+   char *request;
 } request_t;
 
 typedef struct cache_entry {
@@ -301,6 +301,7 @@ void * dispatch(void *arg) {
     }
 
     // Get request from the client
+    filebuf = malloc(BUFF_SIZE * sizeof(char));
     if(get_request(fd, filebuf) != 0) {
       printf("Failed to get request\n");
     }
