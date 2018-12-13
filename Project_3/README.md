@@ -25,8 +25,8 @@ To run the program, run the executable in the current directory with `.\web_serv
   - `cache_size` (integer): number of entries available in cache
 
 
-- The program works by initializing a local web server with specified parameters (listed above). The web server is hosted from the command line, and clients can be initialized to request data from the server. A multi-threaded environment is utilized by way of worker and dispatcher threads. The dispatcher threads regularly accept a request from an incoming connection, read the request, and place the request in a queue. The worker threads regularly monitor the request queue for changes, and receive any requests contained within (and then serve them to a client).
-- This program supports caching. The caching mechanism works by (explanation of caching mechanism used)
+- The program works by initializing a local web server with specified parameters (listed above). The web server is hosted from the command line, and clients can be initialized to request data from the server. A multi-threaded environment is utilized by way of worker and dispatcher threads. The dispatcher threads regularly accept a request from an incoming connection, read the request, and place the request in a queue. The worker threads regularly monitor the request queue for changes, and receive any requests contained within (and then serve them to a client). On each client, times (in milliseconds) associated with each request are printed to the console.
+- For efficiency, this program supports caching. When a worker thread receives a request, it first searches a cache to see if that request has occured before. If it has, "HIT" is printed in the client console. Otherwise, "MISS" is printed.
 - (explanation of policy to dynamically change worker thread pool size) 
 
 - Current testing:
