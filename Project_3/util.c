@@ -130,7 +130,7 @@ int accept_connection(void) {
    // accept one connection using accept()
    // return the fd returned by accept()
    if (pthread_mutex_lock(&accept_con_mutex) < 0) {
-   		printf("Failed to lock connection mutex.");
+   		printf("Failed to lock connection mutex.\n");
    }
 
    int newsock;
@@ -142,7 +142,7 @@ int accept_connection(void) {
    newsock = accept(master_fd, (struct sockaddr *)&new_recv_addr, &addr_len);
 
    if (pthread_mutex_unlock(&accept_con_mutex) < 0) {
-   		printf("Failed to unlock connection mutex.");
+   		printf("Failed to unlock connection mutex.\n");
    }
 
    return newsock;
@@ -173,13 +173,13 @@ int get_request(int fd, char *filename) {
    char buf[2048];
    FILE *stream = fdopen(fd,"r");
 	if (stream == NULL) {
-		printf("Failed to open connection to client: %s", strerror(errno));
+		printf("Failed to open connection to client: %s\n", strerror(errno));
       close(fd);
 		return -4;
 	}
 
    if (fgets(buf,2048,stream) == NULL) {
-      printf("Fgets failed to read from client: %s", strerror(errno));
+      printf("Fgets failed to read from client: %s\n", strerror(errno));
       close(fd);
       return -3;
    }
@@ -192,7 +192,7 @@ int get_request(int fd, char *filename) {
    }
 
    if (strcmp("GET",strings[0])!=0) {
-      printf("Not a GET command");
+      printf("Not a GET command\n");
       close(fd);
       return -1;
    }
@@ -205,13 +205,13 @@ int get_request(int fd, char *filename) {
     }
 
    if (strstr(strings[1],"..") != NULL || strstr(strings[1],"//") != NULL) {
-   	  printf("Attempted security breach.");
+   	  printf("Attempted security breach.\n");
       close(fd);
       return -4;
    }
 
    if (strlen(strings[1]) > 1024) {
-   		printf("BUFFER OVERFLOW IMMINENT!");
+   		printf("BUFFER OVERFLOW IMMINENT!\n");
    }
 
    strncpy(filename,strings[1],1024);
@@ -307,7 +307,7 @@ int return_error(int fd, char *buf) {
          close(fd);
          return -3;
       }
-   
+
       if (fflush(stream) < 0) {
    	   printf("Failed to flush stream.\n");
          close(fd);
